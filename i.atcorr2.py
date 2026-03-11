@@ -3,7 +3,7 @@
 MODULE:    i.atcorr2
 AUTHOR:    Yann Chemin
 PURPOSE:   Atmospheric correction of a single-band raster using
-           the i.hyper.atcorr Python bindings (6SV2.1 LUT-based engine).
+           the libsixsv Python bindings (6SV2.1 LUT-based engine).
 COPYRIGHT: (C) 2026 by the GRASS Development Team
            This program is free software under the GNU General Public
            License (>=v2). Read the file COPYING that comes with GRASS
@@ -11,10 +11,12 @@ COPYRIGHT: (C) 2026 by the GRASS Development Team
 
 NOTES:
   This module delegates all radiative-transfer computations to
-  libatcorr.so (the shared library shipped with i.hyper.atcorr) via the
-  Python ctypes bindings in i.hyper.atcorr/python/atcorr.py.
+  libgrass_sixsv.so (the shared library from libsixsv) via the
+  Python ctypes bindings in libsixsv/python/atcorr.py.
 
   Key differences from i.atcorr (the classic C++ 6S module):
+    - Input must be radiance (W m⁻² sr⁻¹ µm⁻¹); converted to TOA reflectance
+      internally using the Thuillier solar spectrum and Earth-Sun distance.
     - Parameters are explicit GRASS options, no 6S parameter text file.
     - LUT-based approach: a 3-D grid [AOD × H2O × wavelength] is computed
       once, then bilinearly interpolated per pixel for spatially varying
@@ -26,7 +28,7 @@ NOTES:
 """
 
 # %module
-# % description: Atmospheric correction using i.hyper.atcorr Python bindings (6SV2.1 LUT-based)
+# % description: Atmospheric correction using libsixsv Python bindings (6SV2.1 LUT-based)
 # % keyword: imagery
 # % keyword: atmospheric correction
 # % keyword: radiometric conversion
@@ -122,9 +124,9 @@ NOTES:
 # %option
 # % key: doy
 # % type: integer
-# % required: no
+# % required: yes
 # % label: Day of year [1-365]
-# % description: Used to compute Earth-Sun distance for radiance->TOA conversion (required with radiance input)
+# % description: Used to compute Earth-Sun distance for radiance to TOA reflectance conversion
 # % guisection: Geometry
 # %end
 
@@ -205,16 +207,6 @@ NOTES:
 # % guisection: Atmosphere
 # %end
 
-# %option
-# % key: range
-# % key_desc: min,max
-# % type: integer
-# % required: no
-# % answer: 0,255
-# % description: Input raster DN range (scaled to [0, 1] for processing)
-# % guisection: Input
-# %end
-
 # %option G_OPT_R_ELEV
 # % key: elevation
 # % required: no
@@ -273,12 +265,6 @@ NOTES:
 # %end
 
 # %flag
-# % key: r
-# % description: Input raster map is reflectance (default: radiance)
-# % guisection: Input
-# %end
-
-# %flag
 # % key: P
 # % description: Enable vector (Stokes) polarization in LUT computation
 # % guisection: Atmosphere
@@ -297,13 +283,13 @@ import sensors as _sensors
 # ── grass_sixsv Python API ────────────────────────────────────────────────────
 
 def _find_atcorr_api():
-    """Locate atcorr.py installed by the grass_sixsv library (lib6sv).
+    """Locate atcorr.py installed by the grass_sixsv library (libsixsv).
 
     Search order:
       1. $GISBASE/scripts/          — system or g.extension install
       2. $GRASS_ADDON_BASE/scripts/ — per-user g.extension install
-      3. ../lib6sv/python/          — sibling build-tree checkout
-      4. $IHYPER_ATCORR_PYTHON      — explicit env-var override
+      3. ../libsixsv/python/        — sibling build-tree checkout
+      4. $LIBSIXSV_PYTHON           — explicit env-var override
     """
     _gisbase   = os.environ.get("GISBASE", "")
     _addonbase = os.environ.get("GRASS_ADDON_BASE", "")
@@ -313,10 +299,10 @@ def _find_atcorr_api():
         os.path.join(_gisbase, "scripts"),
         # 2. Per-user g.extension location
         os.path.join(_addonbase, "scripts"),
-        # 3. Sibling build-tree (developer checkout: dev/lib6sv/python/)
-        os.path.join(_here, "..", "lib6sv", "python"),
+        # 3. Sibling build-tree (developer checkout: dev/libsixsv/python/)
+        os.path.join(_here, "..", "libsixsv", "python"),
         # 4. Explicit env-var override
-        os.environ.get("IHYPER_ATCORR_PYTHON", ""),
+        os.environ.get("LIBSIXSV_PYTHON", ""),
     ]
     for d in candidates:
         if d and os.path.isfile(os.path.join(d, "atcorr.py")):
@@ -593,8 +579,7 @@ def main():
 
     where *d²* is the Earth-Sun distance correction factor, *E₀* the
     Thuillier 2003 solar irradiance at the requested wavelength, and
-    *θ_s* the solar zenith angle.  This step is skipped when the ``-r``
-    flag is set (input already in reflectance units).
+    *θ_s* the solar zenith angle.
 
     Notes
     -----
@@ -608,9 +593,9 @@ def main():
     api_dir = _find_atcorr_api()
     if api_dir is None:
         gs.fatal(
-            "Cannot locate atcorr.py from i.hyper.atcorr.\n"
-            "Set the IHYPER_ATCORR_PYTHON environment variable to the "
-            "directory containing atcorr.py, or place i.hyper.atcorr/ "
+            "Cannot locate atcorr.py from libsixsv.\n"
+            "Set the LIBSIXSV_PYTHON environment variable to the "
+            "directory containing atcorr.py, or place libsixsv/ "
             "next to i.atcorr2/ in the same parent directory."
         )
     sys.path.insert(0, api_dir)
@@ -619,7 +604,7 @@ def main():
     except ImportError as exc:
         gs.fatal(f"Failed to import atcorr API from {api_dir}: {exc}")
 
-    gs.verbose(f"Using atcorr API from {api_dir}  (libatcorr version: {_atcorr.version()})")
+    gs.verbose(f"Using atcorr API from {api_dir}  (libgrass_sixsv version: {_atcorr.version()})")
 
     # ── Parse 6S parameter file if supplied ──────────────────────────────────
     file_params = {}
@@ -639,7 +624,7 @@ def main():
     # metres (G_OPT_R_ELEV standard) — scene-average derived below.
     target_elev  = float(opts["target_elevation"])
 
-    doy = int(opts["doy"]) if opts["doy"] else file_params.get("doy")
+    doy = int(opts["doy"])
 
     # ── Atmospheric state ─────────────────────────────────────────────────────
     atmo_model    = _ATMO_NAME_TO_INT[opts["atmosphere"]]
@@ -693,12 +678,6 @@ def main():
         )
     wl_arr = np.array([wavelength], dtype=np.float32)
 
-    # ── Input scaling ─────────────────────────────────────────────────────────
-    range_parts = [x.strip() for x in opts["range"].split(",")]
-    dn_min = float(range_parts[0])
-    dn_max = float(range_parts[1])
-
-    flag_refl   = opts["r"]   # input is reflectance
     flag_polar  = opts["P"]   # polarization
 
     # ── Build LutConfig ───────────────────────────────────────────────────────
@@ -759,9 +738,9 @@ def main():
         gs.message(f"Reading {input_map} ({nrows}×{ncols}) ...")
         data = gs.array.array()
         data.read(input_map)                     # shape (nrows, ncols), float64
-        dn = data.array.astype(np.float64)
+        L = data.array.astype(np.float64)        # radiance in W m⁻² sr⁻¹ µm⁻¹
 
-        null_mask = np.isnan(dn)
+        null_mask = np.isnan(L)
 
         # Override target_elev with scene-average of elevation= map (metres → km)
         if opts["elevation"]:
@@ -773,33 +752,16 @@ def main():
                 target_elev = float(np.mean(valid)) / 1000.0
                 gs.verbose(f"Mean elevation {target_elev * 1000:.0f} m → target_elevation {target_elev:.3f} km")
 
-        # Scale DN to [0, 1]
-        if dn_max == dn_min:
-            gs.fatal("Input range min == max; check range= option.")
-        refl_toa = (dn - dn_min) / (dn_max - dn_min)
-
         # ── Radiance → TOA reflectance conversion ─────────────────────────────
-        if not flag_refl:
-            if doy is None:
-                gs.fatal(
-                    "doy= (day of year) is required to convert radiance to TOA "
-                    "reflectance.  Use -r flag if the input is already reflectance."
-                )
-            E0   = _atcorr.solar_E0(wavelength)   # W m⁻² µm⁻¹
-            d2   = _atcorr.earth_sun_dist2(doy)   # AU²
-            mu_s = math.cos(math.radians(sza))
-            if mu_s < 0.01:
-                gs.warning("cos(SZA) < 0.01 (sun near/below horizon). Results may be unreliable.")
-                mu_s = 0.01
-            # ρ_toa = (π × L × d²) / (E₀ × cos θs)
-            # Here L is in the DN-rescaled [0,1] space; the E0 normalisation
-            # factor cancels when used consistently with the LUT (which also
-            # uses the same solar model internally).  We apply the geometric
-            # factor d²/cos(θs) so that the value entering invert() is
-            # physically correct.
-            refl_toa = (math.pi * refl_toa * float(d2)) / (E0 * mu_s + 1e-30)
-            # Guard against extreme values
-            refl_toa = np.clip(refl_toa, 0.0, 2.0)
+        # ρ_toa = (π × L × d²) / (E₀ × cos θs)
+        E0   = _atcorr.solar_E0(wavelength)   # W m⁻² µm⁻¹
+        d2   = _atcorr.earth_sun_dist2(doy)   # AU²
+        mu_s = math.cos(math.radians(sza))
+        if mu_s < 0.01:
+            gs.warning("cos(SZA) < 0.01 (sun near/below horizon). Results may be unreliable.")
+            mu_s = 0.01
+        rho_toa = (math.pi * L * float(d2)) / (E0 * mu_s)
+        rho_toa = np.clip(rho_toa, 0.0, 2.0)
 
         # ── Build per-pixel AOD / H2O fields ──────────────────────────────────
         use_perpixel = False
@@ -850,12 +812,12 @@ def main():
             R_atm, T_down, T_up, s_alb = _bilinear_interp_lut(
                 arrays, cfg, aod_scene, h2o_scene, wl_idx
             )
-            refl_boa = _atcorr.invert(refl_toa, R_atm, T_down, T_up, s_alb)
+            refl_boa = _atcorr.invert(rho_toa, R_atm, T_down, T_up, s_alb)
         else:
             # Scene-average correction
             sl = _atcorr.lut_slice(cfg, arrays,
                                    aod_val=aod_val, h2o_val=h2o_val)
-            refl_boa = _atcorr.invert(refl_toa,
+            refl_boa = _atcorr.invert(rho_toa,
                                       float(sl.R_atm[0]),
                                       float(sl.T_down[0]),
                                       float(sl.T_up[0]),
