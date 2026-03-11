@@ -1,0 +1,496 @@
+<h2>DESCRIPTION</h2>
+
+<p>
+<b>i.atcorr2</b> performs atmospheric correction of a single-band raster
+using the 6SV2.1 radiative-transfer engine exposed by the
+<em><a href="i.hyper.atcorr.html">i.hyper.atcorr</a></em> Python bindings
+(<a href="https://github.com/yannchemin/libsixsv"><tt>grass_sixsv</tt></a>).
+</p>
+
+<p>
+It is a Python counterpart to <em><a href="i.atcorr.html">i.atcorr</a></em>
+that replaces the internal C++ 6S pixel-by-pixel computation with a
+pre-computed <b>look-up table (LUT)</b> approach.  The LUT is a 3-D array
+indexed by [AOD &times; H<sub>2</sub>O &times; wavelength]; once computed it
+can be saved to disk and reused across multiple bands or time steps with no
+additional radiative-transfer cost.
+</p>
+
+<p>
+<em>Important: current region settings are ignored.</em>  The region is
+adjusted to cover the input raster map before correction is applied.  The
+previous settings are restored afterwards.
+</p>
+
+<p>
+All atmospheric parameters (<tt>sza</tt>, <tt>atmosphere</tt>,
+<tt>aerosol</tt>, etc.) are supplied directly as GRASS options &mdash; no
+separate 6S conditions text file is required.  For backward compatibility the
+<tt>parameters=</tt> option accepts the same conditions file used by
+<em>i.atcorr</em>; explicit options always take precedence.
+</p>
+
+<p>
+Spectral band centre wavelengths can be determined automatically from the
+<tt>sensor=</tt> and <tt>band=</tt> options, which use SRF-weighted mean
+wavelengths computed from the sensor CSV files in <tt>sensors_csv/</tt>.
+Explicit <tt>wavelength=</tt> overrides the automatic lookup.
+</p>
+
+<h3>i.atcorr vs i.atcorr2 &mdash; feature comparison</h3>
+
+<table border="1" cellpadding="4">
+<tr>
+  <th>Feature</th>
+  <th><em>i.atcorr</em> (classic)</th>
+  <th><em>i.atcorr2</em> (this module)</th>
+</tr>
+<tr>
+  <td>Language</td>
+  <td>C++</td>
+  <td>Python</td>
+</tr>
+<tr>
+  <td>Engine</td>
+  <td>6S C++ port, pixel-by-pixel</td>
+  <td>6SV2.1 via <tt>grass_sixsv</tt>, LUT-based</td>
+</tr>
+<tr>
+  <td>Parameter input</td>
+  <td>6S conditions text file (<tt>parameters=</tt>, required)</td>
+  <td>Explicit GRASS options; 6S file optionally accepted for backward compatibility</td>
+</tr>
+<tr>
+  <td>Spectral band</td>
+  <td>Sensor code (iwave &minus;2 to 33) or wl range in conditions file</td>
+  <td><tt>sensor=</tt>/<tt>band=</tt> SRF lookup (24 sensors) <b>or</b>
+      explicit <tt>wavelength=</tt> &micro;m</td>
+</tr>
+<tr>
+  <td>Atmospheric model</td>
+  <td>Numeric code 0&ndash;6 in conditions file</td>
+  <td>Named option: <tt>us62</tt>, <tt>tropical</tt>, <tt>midsum</tt>, &hellip;</td>
+</tr>
+<tr>
+  <td>Aerosol concentration</td>
+  <td>Visibility (km) or AOD in conditions file</td>
+  <td><tt>aod=</tt> LUT grid + <tt>aod_val=</tt> scene value</td>
+</tr>
+<tr>
+  <td>Water vapour</td>
+  <td>Fixed by atmospheric model</td>
+  <td><tt>h2o=</tt> LUT grid + <tt>h2o_val=</tt> scene value</td>
+</tr>
+<tr>
+  <td>Per-pixel altitude</td>
+  <td><tt>elevation=</tt> raster (metres)</td>
+  <td><tt>elevation=</tt> raster (metres); scene mean converted to km for 6S</td>
+</tr>
+<tr>
+  <td>Per-pixel visibility</td>
+  <td><tt>visibility=</tt> raster (km)</td>
+  <td><tt>visibility=</tt> raster (km) or <tt>visibility_val=</tt> scalar;
+      converted to AOD via Koschmieder approximation</td>
+</tr>
+<tr>
+  <td>Per-pixel AOD</td>
+  <td>&mdash;</td>
+  <td><tt>aod_map=</tt> raster</td>
+</tr>
+<tr>
+  <td>Per-pixel H<sub>2</sub>O</td>
+  <td>&mdash;</td>
+  <td><tt>h2o_map=</tt> raster</td>
+</tr>
+<tr>
+  <td>LUT caching</td>
+  <td>RB-tree keyed on (alt, vis) bins</td>
+  <td>Full 3-D [AOD &times; H<sub>2</sub>O &times; WL] grid, saveable to <tt>lut=</tt> file</td>
+</tr>
+<tr>
+  <td>Multi-band reuse</td>
+  <td>Each band reruns the full 6S computation</td>
+  <td>Compute LUT once, reuse across bands via <tt>lut=</tt></td>
+</tr>
+<tr>
+  <td>Polarization</td>
+  <td>No</td>
+  <td><b>-P</b> flag (Stokes I, Q, U via 6SV2.1 vector RT)</td>
+</tr>
+<tr>
+  <td>Radiance &rarr; TOA</td>
+  <td>Handled internally by 6S transform</td>
+  <td>Explicit: &rho;<sub>toa</sub>&nbsp;=&nbsp;(&pi;&middot;L&middot;d&sup2;)&nbsp;/&nbsp;(E<sub>0</sub>&middot;cos&nbsp;&theta;<sub>s</sub>); requires <tt>doy=</tt></td>
+</tr>
+<tr>
+  <td>Input DN scaling</td>
+  <td><tt>range=min,max</tt></td>
+  <td><tt>range=min,max</tt></td>
+</tr>
+<tr>
+  <td>Output</td>
+  <td>Float or integer (<b>-i</b> flag); rescalable</td>
+  <td>Float reflectance [0,&nbsp;1]</td>
+</tr>
+<tr>
+  <td>Dependencies</td>
+  <td>GRASS GIS (C build)</td>
+  <td>GRASS GIS + <a href="https://github.com/yannchemin/libsixsv"><tt>grass_sixsv</tt></a> + NumPy</td>
+</tr>
+</table>
+
+<h3>Processing pipeline</h3>
+
+<ol>
+  <li>Parse GRASS options (and optionally a 6S conditions file for
+      geometry).</li>
+  <li>If <tt>sensor=</tt> and <tt>band=</tt> are given, look up the
+      SRF-weighted centre wavelength from <tt>sensors_csv/</tt>;
+      <tt>wavelength=</tt> overrides this.</li>
+  <li>Build a <tt>LutConfig</tt>: geometry + atmospheric state + AOD/H<sub>2</sub>O
+      grid + centre wavelength.</li>
+  <li>If <tt>lut=</tt> file already exists: load it.  Otherwise call
+      <tt>atcorr.compute_lut()</tt> via <tt>grass_sixsv</tt> and, if
+      <tt>lut=</tt> is specified, save the result for future reuse.</li>
+  <li>Adjust the computational region to the input raster (restored on
+      exit).</li>
+  <li>Read input raster; scale DN from <tt>range=</tt> to [0,&nbsp;1].</li>
+  <li>If <tt>elevation=</tt> is given, read it and compute the scene-mean
+      elevation (metres &rarr; km) as <tt>target_elevation</tt>.</li>
+  <li>If radiance input (default): convert to TOA reflectance:
+      <div class="code"><pre>
+rho_toa = (pi * L * d2) / (E0 * cos(sza))</pre></div>
+      where <i>d</i>&sup2; = Earth&ndash;Sun distance [AU&sup2;] from <tt>doy=</tt>,
+      and <i>E</i><sub>0</sub> = Thuillier solar irradiance at <tt>wavelength=</tt>.
+  </li>
+  <li>Build per-pixel AOD/H<sub>2</sub>O fields &mdash; priority chain:
+      <ul>
+        <li>AOD: <tt>aod_map=</tt> &gt; <tt>visibility=</tt> (Koschmieder) &gt;
+            <tt>aod_val=</tt> &gt; <tt>visibility_val=</tt> (Koschmieder) &gt;
+            conditions file &gt; median of <tt>aod=</tt> grid</li>
+        <li>H<sub>2</sub>O: <tt>h2o_map=</tt> &gt; <tt>h2o_val=</tt> &gt;
+            median of <tt>h2o=</tt> grid</li>
+      </ul>
+  </li>
+  <li>Interpolate the LUT at each pixel&rsquo;s (AOD, H<sub>2</sub>O) values
+      (bilinear); or use the scene-average slice when no per-pixel maps are
+      supplied.</li>
+  <li>Invert the Lambertian forward model to obtain surface (BOA) reflectance:
+      <div class="code"><pre>
+rho_boa = (rho_toa - R_atm) / (T_down * T_up + s_alb * (rho_toa - R_atm))</pre></div>
+  </li>
+  <li>Write output raster (float reflectance).</li>
+</ol>
+
+
+<h2>PARAMETER CHOICES</h2>
+
+<h3>A. Atmospheric model (<tt>atmosphere=</tt>)</h3>
+
+<table border="1" cellpadding="4">
+<tr><th>Value</th><th>Meaning</th></tr>
+<tr><td><tt>none</tt></td><td>No gaseous absorption</td></tr>
+<tr><td><tt>tropical</tt></td><td>Tropical</td></tr>
+<tr><td><tt>midsum</tt></td><td>Mid-latitude summer</td></tr>
+<tr><td><tt>midwin</tt></td><td>Mid-latitude winter</td></tr>
+<tr><td><tt>subarctsum</tt></td><td>Sub-arctic summer</td></tr>
+<tr><td><tt>suarctwint</tt></td><td>Sub-arctic winter</td></tr>
+<tr><td><tt>us62</tt></td><td>US Standard 1962 <b>(default)</b></td></tr>
+</table>
+
+<p>Corresponds to codes 0&ndash;6 in the i.atcorr conditions file.</p>
+
+<h3>B. Aerosol model (<tt>aerosol=</tt>)</h3>
+
+<table border="1" cellpadding="4">
+<tr><th>Value</th><th>Meaning</th></tr>
+<tr><td><tt>none</tt></td><td>No aerosols</td></tr>
+<tr><td><tt>continental</tt></td><td>Continental <b>(default)</b></td></tr>
+<tr><td><tt>maritime</tt></td><td>Maritime</td></tr>
+<tr><td><tt>urban</tt></td><td>Urban</td></tr>
+<tr><td><tt>desert</tt></td><td>Background desert (Shettle)</td></tr>
+<tr><td><tt>biomass</tt></td><td>Biomass burning</td></tr>
+<tr><td><tt>stratospheric</tt></td><td>Stratospheric</td></tr>
+</table>
+
+<p>Corresponds to codes 0&ndash;6 in the i.atcorr conditions file.
+Custom aerosol models (codes 7&ndash;11 in i.atcorr) are not supported;
+use <em>i.hyper.atcorr</em> directly for those cases.</p>
+
+<h3>C. AOD LUT grid (<tt>aod=</tt>) and scene value (<tt>aod_val=</tt>)</h3>
+
+<p>
+<tt>aod=</tt> defines the aerosol optical depth grid points at 550&nbsp;nm
+at which the LUT is computed (comma-separated list, e.g.
+<tt>aod=0.0,0.1,0.2,0.5</tt>).  The denser the grid, the more accurate the
+bilinear interpolation but the longer the LUT computation.
+</p>
+<p>
+<tt>aod_val=</tt> (or <tt>aod_map=</tt> for per-pixel values) selects the
+actual AOD used for correction.  The priority chain is:
+<tt>aod_map=</tt> &gt; <tt>visibility=</tt> (Koschmieder) &gt;
+<tt>aod_val=</tt> &gt; <tt>visibility_val=</tt> (Koschmieder) &gt;
+value from <tt>parameters=</tt> file &gt; median of <tt>aod=</tt> grid.
+</p>
+
+<h3>D. H<sub>2</sub>O LUT grid (<tt>h2o=</tt>) and scene value (<tt>h2o_val=</tt>)</h3>
+
+<p>
+<tt>h2o=</tt> defines the column water vapour grid in g/cm&sup2;
+(e.g. <tt>h2o=1.0,2.0,3.5</tt>).  <tt>h2o_val=</tt> (or <tt>h2o_map=</tt>)
+sets the value used for pixel-level correction.
+</p>
+
+<h3>E. Sensor and band (<tt>sensor=</tt>, <tt>band=</tt>)</h3>
+
+<p>
+When <tt>sensor=</tt> and <tt>band=</tt> are both provided, the SRF-weighted
+centre wavelength is looked up automatically from the sensor CSV files in
+<tt>sensors_csv/</tt>.  The 24 supported sensor keys are:
+</p>
+<p>
+<tt>sentinel2a</tt>, <tt>sentinel2b</tt>, <tt>landsat7_etm</tt>,
+<tt>landsat8</tt>, <tt>spot6</tt>, <tt>spot7</tt>, <tt>pleiades1a</tt>,
+<tt>pleiades1b</tt>, <tt>worldview2</tt>, <tt>worldview3</tt>,
+<tt>worldview4</tt>, <tt>geoeye1</tt>, <tt>quickbird2</tt>,
+<tt>ikonos</tt>, <tt>rapideye</tt>, <tt>planetscope_0c_0d</tt>,
+<tt>planetscope_0e</tt>, <tt>planetscope_0f_10</tt>, <tt>avnir</tt>,
+<tt>vgt1_spot4</tt>, <tt>vgt2_spot5</tt>, <tt>prism_b</tt>,
+<tt>prism_f</tt>, <tt>prism_n</tt>.
+</p>
+<p>
+<tt>wavelength=</tt> overrides <tt>sensor=</tt>/<tt>band=</tt> when supplied
+explicitly.
+</p>
+
+<h3>F. Target elevation and sensor altitude</h3>
+
+<p>
+<tt>target_elevation=</tt> is the scene-average ground elevation in km above
+sea level (default&nbsp;0).  When <tt>elevation=</tt> (a raster map in
+<b>metres</b>, <tt>G_OPT_R_ELEV</tt> standard) is provided, its spatial mean
+is converted to km and used as <tt>target_elevation</tt>.
+</p>
+<p>
+<tt>altitude=</tt> is the sensor altitude in km.  Values &gt;&nbsp;900 are
+treated as satellite orbit (default&nbsp;1000).  Set to 0 for ground-level
+instruments.
+</p>
+
+<h3>G. Visibility (<tt>visibility=</tt>, <tt>visibility_val=</tt>)</h3>
+
+<p>
+Per-pixel (<tt>visibility=</tt>) or scene-level (<tt>visibility_val=</tt>)
+meteorological visibility in km is converted to AOD at 550&nbsp;nm via the
+Koschmieder approximation:
+</p>
+<div class="code"><pre>
+AOD_550 &asymp; 3.912 / V_km &minus; 0.01162
+</pre></div>
+<p>
+clipped to [0.001,&nbsp;5.0].  These inputs are overridden by
+<tt>aod_map=</tt> / <tt>aod_val=</tt> when provided.
+</p>
+
+<h3>H. LUT file (<tt>lut=</tt>)</h3>
+
+<p>
+Path to a binary LUT file compatible with the i.hyper.atcorr LUT format
+(magic <tt>0x4C555400</tt>, version&nbsp;1).  If the file exists it is
+loaded; otherwise the LUT is computed and written to that path.  This allows
+the same LUT to be shared across multiple <em>i.atcorr2</em> runs (different
+bands of the same scene) or with the <em>i.hyper.atcorr</em> C module.
+</p>
+
+
+<h2>NOTES</h2>
+
+<h3>Locating the grass_sixsv Python API</h3>
+
+<p>
+The module searches for <tt>atcorr.py</tt> in the following locations,
+in order:
+</p>
+<ol>
+  <li><tt>$GISBASE/scripts/</tt> &mdash; system or <tt>g.extension</tt>
+      install</li>
+  <li><tt>$GRASS_ADDON_BASE/scripts/</tt> &mdash; per-user
+      <tt>g.extension</tt> install</li>
+  <li><tt>../libsixsv/python/</tt> &mdash; sibling clone of
+      <a href="https://github.com/yannchemin/libsixsv">github.com/yannchemin/libsixsv</a></li>
+  <li>Directory in the <tt>IHYPER_ATCORR_PYTHON</tt> environment
+      variable</li>
+</ol>
+<p>Clone and build
+<a href="https://github.com/yannchemin/libsixsv">libsixsv</a> with
+<tt>make &amp;&amp; make install</tt> before running this module.</p>
+
+<h3>Radiance vs. reflectance input</h3>
+
+<p>
+By default the input raster is treated as <em>radiance</em>.  DN values
+are first scaled to [0,&nbsp;1] using <tt>range=</tt>, then converted to
+TOA reflectance using the Thuillier solar spectrum and the Earth&ndash;Sun
+distance for the given <tt>doy=</tt>.  The <tt>doy=</tt> option is therefore
+<em>required</em> for radiance input.
+</p>
+<p>
+Use the <b>-r</b> flag when the input is already TOA reflectance (e.g.
+output of <em>i.landsat.toar</em>); <tt>doy=</tt> is then not needed.
+</p>
+
+<h3>Backward compatibility with i.atcorr parameter files</h3>
+
+<p>
+The <tt>parameters=</tt> option accepts the same 6S conditions text file
+used by <em>i.atcorr</em>.  Solar geometry (SZA approximated from latitude,
+longitude, date and UTC hour), atmospheric model code, aerosol model code
+and AOD/visibility are extracted from the file.  Any value explicitly
+provided as a GRASS option overrides the file value.
+</p>
+<p>
+The spectral band code (<em>iwave</em> line in the file) is parsed but not
+used for automatic wavelength lookup; use <tt>sensor=</tt>/<tt>band=</tt>
+or explicit <tt>wavelength=</tt>.
+</p>
+
+<h3>LUT reuse across multiple bands</h3>
+
+<p>
+When correcting several bands of the same scene, compute and save the LUT
+on the first call.  Subsequent calls load it instantly:
+</p>
+<div class="code"><pre>
+# Step 1: build the LUT and correct the red band
+i.atcorr2 -r input=landsat8_B4 output=landsat8_B4_boa \
+          sensor=landsat8 band=LC08_B4 sza=35.0 doy=180 \
+          aod=0.0,0.1,0.2,0.5  h2o=1.0,2.0,3.5 \
+          lut=/tmp/landsat8.lut
+
+# Step 2: reuse the LUT for NIR (wavelength must be present in the LUT)
+i.atcorr2 -r input=landsat8_B5 output=landsat8_B5_boa \
+          sensor=landsat8 band=LC08_B5 sza=35.0 \
+          lut=/tmp/landsat8.lut
+</pre></div>
+<p>
+For full hyperspectral cubes (many bands at once), use
+<em>i.hyper.atcorr</em> directly on a Raster3D input.
+</p>
+
+<h3>Per-pixel atmospheric maps</h3>
+
+<p>
+When <tt>aod_map=</tt>, <tt>visibility=</tt>, or <tt>h2o_map=</tt> rasters
+are provided the correction applies bilinear LUT interpolation independently
+for each pixel.  All maps must cover the same region as the input raster.
+Common sources include MODIS AOD (MOD04) and precipitable water (MOD05)
+reprojected with <em>r.import</em>, or meteorological visibility fields from
+NWP model output.
+</p>
+
+
+<h2>EXAMPLES</h2>
+
+<h3>Sentinel-2 with sensor/band auto-lookup</h3>
+
+<div class="code"><pre>
+i.atcorr2 -r \
+    input=sentinel2_B4 output=sentinel2_B4_boa \
+    sensor=sentinel2a band=B4 \
+    sza=28.5 vza=4.0 raa=95.0 \
+    aod=0.05,0.15,0.30  h2o=1.0,2.5 \
+    aod_val=0.12        h2o_val=1.8 \
+    atmosphere=us62 aerosol=continental
+</pre></div>
+
+<h3>Radiance input with day-of-year (Landsat 8)</h3>
+
+<div class="code"><pre>
+i.atcorr2 \
+    input=landsat8_B4_dn output=landsat8_B4_boa \
+    sensor=landsat8 band=LC08_B4 doy=210 \
+    sza=35.0 vza=0.0 raa=180.0 \
+    range=0,65535 \
+    aod=0.0,0.2,0.5  h2o=1.0,3.0
+</pre></div>
+
+<h3>Per-pixel visibility raster (converted to AOD)</h3>
+
+<div class="code"><pre>
+i.atcorr2 -r \
+    input=sentinel2_B4 output=sentinel2_B4_boa \
+    sensor=sentinel2a band=B4 \
+    sza=28.5 visibility=vis_km_map \
+    aod=0.0,0.1,0.2,0.5  h2o=1.0,2.5
+</pre></div>
+
+<h3>Per-pixel AOD and H<sub>2</sub>O maps (HLS)</h3>
+
+<div class="code"><pre>
+i.atcorr2 -r \
+    input=hls_red output=hls_red_boa \
+    wavelength=0.640 sza=30.0 \
+    aod_map=aod_550nm  h2o_map=tcw \
+    aod=0.0,0.1,0.2,0.4,0.8  h2o=0.5,1.5,3.0,5.0 \
+    lut=/tmp/hls.lut
+</pre></div>
+
+<h3>Backward-compatible i.atcorr parameter file</h3>
+
+<div class="code"><pre>
+i.atcorr2 \
+    input=etm_band4 output=etm_band4_boa \
+    parameters=ETM4_atmospheric_input.txt \
+    wavelength=0.776 \
+    aod=0.0,0.1,0.15,0.3  h2o=1.0,2.0
+</pre></div>
+
+<h3>Polarization-enabled correction</h3>
+
+<div class="code"><pre>
+i.atcorr2 -rP \
+    input=sentinel2_B2 output=sentinel2_B2_boa_polar \
+    sensor=sentinel2a band=B2 \
+    sza=30.0 vza=5.0 raa=90.0 \
+    aod=0.0,0.1,0.3  h2o=1.0,2.5
+</pre></div>
+
+
+<h2>SEE ALSO</h2>
+
+<em>
+<a href="i.atcorr.html">i.atcorr</a>,
+<a href="i.hyper.atcorr.html">i.hyper.atcorr</a>,
+<a href="i.landsat.toar.html">i.landsat.toar</a>,
+<a href="i.sentinel.import.html">i.sentinel.import</a>,
+<a href="r.import.html">r.import</a>,
+<a href="m.proj.html">m.proj</a>
+</em>
+
+
+<h2>REFERENCES</h2>
+
+<ul>
+  <li>Vermote, E.F., Tanr&eacute;, D., Deu&eacute;z&eacute;, J.L., Herman, M., &amp;
+      Morcrette, J.J. (1997). Second simulation of the satellite signal in
+      the solar spectrum, 6S: An overview.
+      <em>IEEE Transactions on Geoscience and Remote Sensing</em>,
+      35(3), 675&ndash;686.</li>
+  <li>Kotchenova, S.Y., Vermote, E.F., Matarrese, R., &amp; Klemm, F.J.
+      (2006). Validation of a vector version of the 6S radiative transfer
+      code for atmospheric correction of satellite data.
+      <em>Applied Optics</em>, 45(26), 6762&ndash;6774.</li>
+  <li>Thuillier, G., et al. (2003). The solar spectral irradiance from 200
+      to 2400&nbsp;nm as measured by the SOLSPEC spectrometer from the Atlas
+      and Eureca missions.
+      <em>Solar Physics</em>, 214(1), 1&ndash;22.</li>
+</ul>
+
+
+<h2>AUTHORS</h2>
+
+<p>
+Yann Chemin &mdash; based on
+<em><a href="i.atcorr.html">i.atcorr</a></em> (Christo Zietsman /
+GRASS Development Team) and <em>i.hyper.atcorr</em>.
+</p>
