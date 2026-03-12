@@ -2,7 +2,7 @@
 
 **i.atcorr2** performs atmospheric correction of a single-band raster
 using the 6SV2.1 radiative-transfer engine exposed by the
-[`grass_sixsv`](https://github.com/yannchemin/libsixsv) Python bindings.
+[`grass_sixsv`](https://github.com/YannChemin/libsixsv) Python bindings.
 
 It is a Python counterpart to [i.atcorr](../grass/imagery/i.atcorr/) that
 replaces the internal C++ 6S pixel-by-pixel computation with a pre-computed
@@ -45,8 +45,8 @@ overrides the automatic lookup.
 | **LUT caching** | RB-tree keyed on (alt, vis) bins | Full 3-D [AOD × H₂O × WL] grid, saveable to `lut=` file |
 | **Multi-band reuse** | Each band reruns the full 6S computation | Compute LUT once, reuse across bands via `lut=` |
 | **Polarization** | No | `-P` flag (Stokes I, Q, U via 6SV2.1 vector RT) |
-| **Radiance → TOA** | Handled internally by 6S transform | Explicit: `ρ_toa = (π·L·d²) / (E₀·cos θs)`; requires `doy=` |
-| **Input DN scaling** | `range=min,max` | `range=min,max` |
+| **Input** | Radiance or reflectance (`-r` flag) | Radiance (W m⁻² sr⁻¹ µm⁻¹) only; `doy=` required |
+| **Radiance → TOA** | Handled internally by 6S transform | Explicit: `ρ_toa = (π·L·d²) / (E₀·cos θs)` using Thuillier spectrum |
 | **Output** | Float or integer (`-i` flag); rescalable | Float reflectance [0, 1] |
 | **Dependencies** | GRASS GIS (C build) | GRASS GIS + `grass_sixsv` + NumPy |
 
@@ -63,10 +63,10 @@ overrides the automatic lookup.
    `atcorr.compute_lut()` via `grass_sixsv` and, if `lut=` is specified,
    save the result for future reuse.
 5. Adjust the computational region to the input raster (restored on exit).
-6. Read input raster; scale DN from `range=` to [0, 1].
+6. Read input raster (radiance in W m⁻² sr⁻¹ µm⁻¹).
 7. If `elevation=` is given, read it and compute the scene-mean elevation
    (metres → km) as `target_elevation`.
-8. If radiance input (default): convert to TOA reflectance:
+8. Convert radiance to TOA reflectance:
    ```
    rho_toa = (pi * L * d2) / (E0 * cos(sza))
    ```
@@ -189,21 +189,18 @@ The module searches for `atcorr.py` in the following locations, in order:
 
 1. `$GISBASE/scripts/` — system or `g.extension` install
 2. `$GRASS_ADDON_BASE/scripts/` — per-user `g.extension` install
-3. `../libsixsv/python/` — sibling clone of [github.com/yannchemin/libsixsv](https://github.com/yannchemin/libsixsv)
-4. Directory in the `IHYPER_ATCORR_PYTHON` environment variable
+3. `../libsixsv/python/` — sibling clone of [github.com/YannChemin/libsixsv](https://github.com/YannChemin/libsixsv)
+4. Directory in the `LIBSIXSV_PYTHON` environment variable
 
-Clone and build [libsixsv](https://github.com/yannchemin/libsixsv) with
+Clone and build [libsixsv](https://github.com/YannChemin/libsixsv) with
 `make && make install` before running this module.
 
-### Radiance vs. reflectance input
+### Radiance input
 
-By default the input raster is treated as *radiance*.  DN values are first
-scaled to [0, 1] using `range=`, then converted to TOA reflectance using the
-Thuillier solar spectrum and the Earth–Sun distance for the given `doy=`.
-The `doy=` option is therefore *required* for radiance input.
-
-Use the `-r` flag when the input is already TOA reflectance (e.g. output of
-*i.landsat.toar*); `doy=` is then not needed.
+The input raster must contain calibrated radiance values in
+W m⁻² sr⁻¹ µm⁻¹.  These are converted to TOA reflectance internally using
+the Thuillier solar spectrum and the Earth–Sun distance for the given `doy=`.
+`doy=` is therefore always required.
 
 ### Backward compatibility with i.atcorr parameter files
 
@@ -223,14 +220,14 @@ on the first call.  Subsequent calls load it instantly:
 
 ```sh
 # Step 1: build the LUT and correct the red band
-i.atcorr2 -r input=landsat8_B4 output=landsat8_B4_boa \
+i.atcorr2 input=landsat8_B4_rad output=landsat8_B4_boa \
           sensor=landsat8 band=LC08_B4 sza=35.0 doy=180 \
           aod=0.0,0.1,0.2,0.5  h2o=1.0,2.0,3.5 \
           lut=/tmp/landsat8.lut
 
 # Step 2: reuse the LUT for NIR (wavelength must be present in the LUT)
-i.atcorr2 -r input=landsat8_B5 output=landsat8_B5_boa \
-          sensor=landsat8 band=LC08_B5 sza=35.0 \
+i.atcorr2 input=landsat8_B5_rad output=landsat8_B5_boa \
+          sensor=landsat8 band=LC08_B5 sza=35.0 doy=180 \
           lut=/tmp/landsat8.lut
 ```
 
@@ -252,42 +249,41 @@ include MODIS AOD (MOD04) and precipitable water (MOD05) reprojected with
 ### Sentinel-2 with sensor/band auto-lookup
 
 ```sh
-i.atcorr2 -r \
-    input=sentinel2_B4 output=sentinel2_B4_boa \
+i.atcorr2 \
+    input=sentinel2_B4_rad output=sentinel2_B4_boa \
     sensor=sentinel2a band=B4 \
-    sza=28.5 vza=4.0 raa=95.0 \
+    sza=28.5 vza=4.0 raa=95.0 doy=180 \
     aod=0.05,0.15,0.30  h2o=1.0,2.5 \
     aod_val=0.12        h2o_val=1.8 \
     atmosphere=us62 aerosol=continental
 ```
 
-### Radiance input with day-of-year (Landsat 8)
+### Landsat 8 radiance input
 
 ```sh
 i.atcorr2 \
-    input=landsat8_B4_dn output=landsat8_B4_boa \
+    input=landsat8_B4_rad output=landsat8_B4_boa \
     sensor=landsat8 band=LC08_B4 doy=210 \
     sza=35.0 vza=0.0 raa=180.0 \
-    range=0,65535 \
     aod=0.0,0.2,0.5  h2o=1.0,3.0
 ```
 
 ### Per-pixel visibility raster (converted to AOD)
 
 ```sh
-i.atcorr2 -r \
-    input=sentinel2_B4 output=sentinel2_B4_boa \
+i.atcorr2 \
+    input=sentinel2_B4_rad output=sentinel2_B4_boa \
     sensor=sentinel2a band=B4 \
-    sza=28.5 visibility=vis_km_map \
+    sza=28.5 doy=180 visibility=vis_km_map \
     aod=0.0,0.1,0.2,0.5  h2o=1.0,2.5
 ```
 
 ### Per-pixel AOD and H₂O maps (HLS)
 
 ```sh
-i.atcorr2 -r \
-    input=hls_red output=hls_red_boa \
-    wavelength=0.640 sza=30.0 \
+i.atcorr2 \
+    input=hls_red_rad output=hls_red_boa \
+    wavelength=0.640 sza=30.0 doy=200 \
     aod_map=aod_550nm  h2o_map=tcw \
     aod=0.0,0.1,0.2,0.4,0.8  h2o=0.5,1.5,3.0,5.0 \
     lut=/tmp/hls.lut
@@ -297,19 +293,19 @@ i.atcorr2 -r \
 
 ```sh
 i.atcorr2 \
-    input=etm_band4 output=etm_band4_boa \
+    input=etm_band4_rad output=etm_band4_boa \
     parameters=ETM4_atmospheric_input.txt \
-    wavelength=0.776 \
+    wavelength=0.776 doy=150 \
     aod=0.0,0.1,0.15,0.3  h2o=1.0,2.0
 ```
 
 ### Polarization-enabled correction
 
 ```sh
-i.atcorr2 -rP \
-    input=sentinel2_B2 output=sentinel2_B2_boa_polar \
+i.atcorr2 -P \
+    input=sentinel2_B2_rad output=sentinel2_B2_boa_polar \
     sensor=sentinel2a band=B2 \
-    sza=30.0 vza=5.0 raa=90.0 \
+    sza=30.0 vza=5.0 raa=90.0 doy=180 \
     aod=0.0,0.1,0.3  h2o=1.0,2.5
 ```
 

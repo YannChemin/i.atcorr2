@@ -589,7 +589,7 @@ def main():
     """
     opts  = gs.parser()
 
-    # ── Locate and import the i.hyper.atcorr Python API ──────────────────────
+    # ── Locate and import the libsixsv Python API ────────────────────────────
     api_dir = _find_atcorr_api()
     if api_dir is None:
         gs.fatal(

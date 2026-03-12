@@ -14,18 +14,19 @@ Standalone tests (no dependency on i.atcorr):
   - Different atmosphere models produce different outputs
 
 Cross-comparison with i.atcorr (skipped when i.atcorr is absent):
-  Both modules are given the same 6S atmospheric conditions (TM geometry,
-  us62 atmosphere, continental aerosol, 40 km visibility) and the same
-  reflectance input.  Because they use different 6S engine versions
-  (6SV original C++ vs 6SV2.1) and i.atcorr2 uses LUT interpolation,
-  exact agreement is not expected; the accepted tolerance is 15 % of the
-  mean output value.
+  i.atcorr receives reflectance input (its -r flag).  i.atcorr2 receives
+  the equivalent calibrated radiance (L ≈ 44 W m⁻² sr⁻¹ µm⁻¹, chosen so
+  that ρ_toa ≈ 0.1 at WL=0.660 µm, SZA=32.6°, DOY=210).  Because the
+  modules use different 6S engine versions (6SV original C++ vs 6SV2.1)
+  and i.atcorr2 uses LUT interpolation, exact agreement is not expected;
+  the accepted tolerance is 15 % of the mean output value.
 
   C1. Monochromatic scene: both means agree within 15 %
   C2. Aerosol loading direction: both modules show clear-sky > hazy
   C3. Elevation effect direction: both modules show a nonzero change
       of consistent sign when target is raised from 0 to 1 km
   C4. Visibility raster in i.atcorr ≈ visibility_val= in i.atcorr2
+  C5. Aerosol model direction: same ranking in both modules
 """
 
 import os
@@ -85,19 +86,22 @@ def _write_6s_params(path, *, iwave=-1, wavelength_um=0.660,
 class TestIAtcorr2Standalone(TestCase):
     """i.atcorr2 self-consistency and physical-monotonicity tests.
 
-    All tests use a synthetic 10×10 uniform reflectance raster (ρ = 0.1)
-    with the -r flag (input already in reflectance units).  A common set
-    of options is shared via :meth:`_common_kwargs` and individual tests
-    override only the parameters under test.
+    All tests use a synthetic 10×10 uniform radiance raster
+    (L = 44 W m⁻² sr⁻¹ µm⁻¹, approximately equivalent to ρ_toa ≈ 0.1
+    at WL=0.665 µm, SZA=32.6°, DOY=210).  A common set of options is
+    shared via :meth:`_common_kwargs` and individual tests override only
+    the parameters under test.
     """
 
-    REFL_MAP = "test_atcorr2_refl"
+    RAD_MAP  = "test_atcorr2_rad"
     VIS_MAP  = "test_atcorr2_vis"
     ELEV_MAP = "test_atcorr2_elev"
     AOD_MAP  = "test_atcorr2_aod"
 
     # Approximate SZA for Jun 15, 10:00 UTC, lat=45 N
     SZA = 32.6
+    # Day of year for midsummer scene
+    DOY = 210
     # Red wavelength matching Sentinel-2A B4 for sensor-lookup tests
     WL  = 0.665
 
@@ -107,9 +111,10 @@ class TestIAtcorr2Standalone(TestCase):
     def setUpClass(cls):
         cls.use_temp_region()
         cls.runModule("g.region", n=10, s=0, e=10, w=0, rows=10, cols=10)
-        # Uniform 10 % reflectance
+        # Uniform radiance ~44 W m⁻² sr⁻¹ µm⁻¹
+        # (≈ ρ_toa 0.1 at WL=0.665 µm, SZA=32.6°, DOY=210)
         cls.runModule("r.mapcalc",
-                      expression=f"{cls.REFL_MAP} = 0.1",
+                      expression=f"{cls.RAD_MAP} = 44.0",
                       overwrite=True)
         # Uniform visibility raster 40 km
         cls.runModule("r.mapcalc",
@@ -138,22 +143,21 @@ class TestIAtcorr2Standalone(TestCase):
 
         The returned dict uses Sentinel-2A B4 (red, ~0.665 µm) with scene-
         average AOD=0.1, H2O=2.0 g/cm², US-62 atmosphere, continental
-        aerosol, reflectance input and integer range [0, 1].
+        aerosol, and radiance input.
         """
         kw = dict(
-            input=self.REFL_MAP,
+            input=self.RAD_MAP,
             output=output,
             sensor="sentinel2a",
             band="B4",
             sza=self.SZA,
+            doy=self.DOY,
             atmosphere="us62",
             aerosol="continental",
             aod_val=0.1,
             h2o_val=2.0,
             aod="0.0,0.1,0.2,0.5",
             h2o="1.0,2.0,3.5",
-            range="0,1",
-            flags="r",
             overwrite=True,
         )
         kw.update(overrides)
@@ -178,7 +182,7 @@ class TestIAtcorr2Standalone(TestCase):
     # ── 2. AOD sensitivity ───────────────────────────────────────────────── #
 
     def test_aod_higher_gives_lower_boa(self):
-        """For ρ_toa=0.1, BOA at AOD=0.40 must be lower than at AOD=0.05."""
+        """For uniform radiance input, BOA at AOD=0.40 must be lower than at AOD=0.05."""
         out_lo = "atcorr2_out_aod_lo"
         out_hi = "atcorr2_out_aod_hi"
         self.assertModule(self.MODULE,
@@ -195,8 +199,9 @@ class TestIAtcorr2Standalone(TestCase):
         out_clear = "atcorr2_out_vis_clear"
         out_hazy  = "atcorr2_out_vis_hazy"
         base = dict(
-            input=self.REFL_MAP,
+            input=self.RAD_MAP,
             sza=self.SZA,
+            doy=self.DOY,
             atmosphere="us62",
             aerosol="continental",
             sensor="sentinel2a",
@@ -204,8 +209,6 @@ class TestIAtcorr2Standalone(TestCase):
             h2o_val=2.0,
             aod="0.0,0.1,0.2,0.5",
             h2o="1.0,2.0,3.5",
-            range="0,1",
-            flags="r",
             overwrite=True,
         )
         self.assertModule(self.MODULE,
@@ -224,8 +227,9 @@ class TestIAtcorr2Standalone(TestCase):
         out_rast = "atcorr2_out_vis_raster"
         out_scal = "atcorr2_out_vis_scalar"
         base = dict(
-            input=self.REFL_MAP,
+            input=self.RAD_MAP,
             sza=self.SZA,
+            doy=self.DOY,
             atmosphere="us62",
             aerosol="continental",
             sensor="sentinel2a",
@@ -233,8 +237,6 @@ class TestIAtcorr2Standalone(TestCase):
             h2o_val=2.0,
             aod="0.0,0.1,0.2,0.5",
             h2o="1.0,2.0,3.5",
-            range="0,1",
-            flags="r",
             overwrite=True,
         )
         self.assertModule(self.MODULE,
@@ -271,19 +273,18 @@ class TestIAtcorr2Standalone(TestCase):
         """Sensor+band lookup for Sentinel-2A B2 (blue ~0.492 µm) must succeed."""
         out = "atcorr2_out_s2a_b2"
         self.assertModule(self.MODULE,
-                          input=self.REFL_MAP,
+                          input=self.RAD_MAP,
                           output=out,
                           sensor="sentinel2a",
                           band="B2",
                           sza=self.SZA,
+                          doy=self.DOY,
                           atmosphere="us62",
                           aerosol="continental",
                           aod_val=0.15,
                           h2o_val=2.0,
                           aod="0.0,0.1,0.2,0.5",
                           h2o="1.0,2.0,3.5",
-                          range="0,1",
-                          flags="r",
                           overwrite=True)
         stats = gs.parse_command("r.univar", map=out, format="json")
         self.assertGreaterEqual(stats["n"], 100,
@@ -293,19 +294,18 @@ class TestIAtcorr2Standalone(TestCase):
         """Sensor+band lookup for Landsat 8 B4 (red ~0.655 µm) must succeed."""
         out = "atcorr2_out_l8_b4"
         self.assertModule(self.MODULE,
-                          input=self.REFL_MAP,
+                          input=self.RAD_MAP,
                           output=out,
                           sensor="landsat8",
                           band="LC08_B4",
                           sza=self.SZA,
+                          doy=self.DOY,
                           atmosphere="us62",
                           aerosol="continental",
                           aod_val=0.1,
                           h2o_val=2.0,
                           aod="0.0,0.1,0.2,0.5",
                           h2o="1.0,2.0,3.5",
-                          range="0,1",
-                          flags="r",
                           overwrite=True)
         stats = gs.parse_command("r.univar", map=out, format="json")
         self.assertGreaterEqual(stats["n"], 100,
@@ -340,8 +340,9 @@ class TestIAtcorr2Standalone(TestCase):
         out_rast = "atcorr2_out_aod_raster"
         out_scal = "atcorr2_out_aod_scalar"
         base = dict(
-            input=self.REFL_MAP,
+            input=self.RAD_MAP,
             sza=self.SZA,
+            doy=self.DOY,
             atmosphere="us62",
             aerosol="continental",
             sensor="sentinel2a",
@@ -349,8 +350,6 @@ class TestIAtcorr2Standalone(TestCase):
             h2o_val=2.0,
             aod="0.0,0.1,0.2,0.5",
             h2o="1.0,2.0,3.5",
-            range="0,1",
-            flags="r",
             overwrite=True,
         )
         self.assertModule(self.MODULE,
@@ -372,7 +371,6 @@ class TestIAtcorr2Standalone(TestCase):
         gs.use_temp_region(); the working region of the calling session
         must be restored when the module returns.
         """
-        # Create a sub-region that is smaller than the input raster
         self.use_temp_region()
         self.runModule("g.region", n=6, s=0, e=6, w=0, rows=6, cols=6)
         region_before = gs.region()
@@ -421,31 +419,40 @@ class TestIAtcorr2Standalone(TestCase):
 class TestIAtcorr2VsAtcorr(TestCase):
     """Compare i.atcorr2 output against the classic i.atcorr.
 
-    Both modules are given the same 6S atmospheric conditions and
-    reflectance input (``-r`` flag).  Agreement to within 15 % of the
-    mean output value is required; differences arise from the different 6S
-    engine versions and LUT interpolation in i.atcorr2.
+    i.atcorr receives reflectance input (its ``-r`` flag, ρ = 0.1).
+    i.atcorr2 receives the equivalent calibrated radiance
+    (L ≈ 44 W m⁻² sr⁻¹ µm⁻¹ at WL=0.660 µm, SZA=32.6°, DOY=210).
+    Agreement to within 15 % of the mean output value is required;
+    differences arise from different 6S engine versions and LUT
+    interpolation in i.atcorr2.
 
     All tests in this class are skipped automatically when i.atcorr is
     not installed.
     """
 
     REFL_MAP = "test_atcorr_cmp_refl"
+    RAD_MAP  = "test_atcorr_cmp_rad"
     SZA      = 32.6     # Jun 15, 10:00 UTC, lat=45 N
+    DOY      = 210      # midsummer
     WL       = 0.660    # monochromatic red wavelength
     TOL_REL  = 0.15     # 15 % relative tolerance for cross-module comparison
 
     @classmethod
     def setUpClass(cls):
-        """Create synthetic input and check i.atcorr availability."""
+        """Create synthetic inputs and check i.atcorr availability."""
         if not gs.find_program("i.atcorr", "--help"):
             raise unittest.SkipTest(
                 "i.atcorr is not installed; skipping cross-comparison tests"
             )
         cls.use_temp_region()
         cls.runModule("g.region", n=10, s=0, e=10, w=0, rows=10, cols=10)
+        # Reflectance input for i.atcorr (-r flag)
         cls.runModule("r.mapcalc",
                       expression=f"{cls.REFL_MAP} = 0.1",
+                      overwrite=True)
+        # Equivalent radiance for i.atcorr2 (L ≈ 44 W m⁻² sr⁻¹ µm⁻¹)
+        cls.runModule("r.mapcalc",
+                      expression=f"{cls.RAD_MAP} = 44.0",
                       overwrite=True)
         # Shared 6S parameter file: monochromatic red, clear sky, sea level
         fd, cls.params_file = tempfile.mkstemp(suffix=".params",
@@ -488,19 +495,18 @@ class TestIAtcorr2VsAtcorr(TestCase):
                      aod_val=None, visibility_val=None,
                      vis_map=None, elev_map=None,
                      target_elevation=0.0, params_file=None):
-        """Run i.atcorr2 with reflectance input."""
+        """Run i.atcorr2 with radiance input."""
         kw = dict(
-            input=self.REFL_MAP,
+            input=self.RAD_MAP,
             output=output,
             sza=self.SZA,
+            doy=self.DOY,
             atmosphere="us62",
             aerosol="continental",
             h2o_val=2.0,
             aod="0.0,0.1,0.2,0.5",
             h2o="1.0,2.0,3.5",
-            range="0,1",
             target_elevation=target_elevation,
-            flags="r",
             overwrite=True,
         )
         if wavelength is not None:
@@ -568,7 +574,6 @@ class TestIAtcorr2VsAtcorr(TestCase):
             self.assertGreater(m2_clear, m2_hazy,
                                "i.atcorr2: clear sky did not yield higher BOA than hazy")
 
-            # The magnitudes of the difference must also be in the same ballpark
             self._within_tolerance(m1_clear, m2_clear,
                                    "i.atcorr(clear)", "i.atcorr2(clear)")
             self._within_tolerance(m1_hazy, m2_hazy,
@@ -606,7 +611,6 @@ class TestIAtcorr2VsAtcorr(TestCase):
             d_new     = (self._mean("atcorr2_cmp_elev_1km")
                          - self._mean("atcorr2_cmp_elev_0km"))
 
-            # Each module must individually show a nonzero elevation effect
             self.assertNotAlmostEqual(
                 self._mean("atcorr_cmp_elev_0km"),
                 self._mean("atcorr_cmp_elev_1km"),
@@ -618,7 +622,6 @@ class TestIAtcorr2VsAtcorr(TestCase):
                 delta=1e-4,
                 msg="i.atcorr2 shows no effect from 1 km elevation change")
 
-            # Both must agree on the sign of the elevation effect
             self.assertEqual(
                 d_classic > 0, d_new > 0,
                 msg=(f"i.atcorr and i.atcorr2 disagree on the sign of the "
@@ -639,15 +642,12 @@ class TestIAtcorr2VsAtcorr(TestCase):
                        expression=f"{vis_rast} = 25.0",
                        overwrite=True)
         try:
-            # i.atcorr with a per-pixel visibility raster
             self._run_atcorr("atcorr_cmp_vis_rast",
                               params_file=self.params_file,
                               vis_map=vis_rast)
-            # i.atcorr2 with a per-pixel visibility raster
             self._run_atcorr2("atcorr2_cmp_vis_rast",
                                wavelength=self.WL,
                                vis_map=vis_rast)
-            # i.atcorr2 with a scalar visibility value
             self._run_atcorr2("atcorr2_cmp_vis_val",
                                wavelength=self.WL,
                                visibility_val=25)
@@ -656,12 +656,10 @@ class TestIAtcorr2VsAtcorr(TestCase):
             m_a2_val  = self._mean("atcorr2_cmp_vis_val")
             m_classic = self._mean("atcorr_cmp_vis_rast")
 
-            # i.atcorr2: uniform raster == scalar
             self.assertAlmostEqual(
                 m_a2_rast, m_a2_val, delta=1e-4,
                 msg="i.atcorr2: visibility raster vs scalar differ")
 
-            # Cross-module: both within 15 % of each other
             self._within_tolerance(m_classic, m_a2_val,
                                    "i.atcorr(vis raster)", "i.atcorr2(vis scalar)")
         finally:
@@ -698,13 +696,11 @@ class TestIAtcorr2VsAtcorr(TestCase):
             m2_cont = self._mean("atcorr2_cmp_aerosol_cont")
             m2_mar  = self._mean("atcorr2_cmp_aerosol_mar")
 
-            # Each module should produce different output for the two aerosol models
             self.assertNotAlmostEqual(m1_cont, m1_mar, delta=1e-4,
                                       msg="i.atcorr: continental == maritime (unexpected)")
             self.assertNotAlmostEqual(m2_cont, m2_mar, delta=1e-4,
                                       msg="i.atcorr2: continental == maritime (unexpected)")
 
-            # Both modules must agree on the direction of the difference
             self.assertEqual(
                 (m1_cont > m1_mar), (m2_cont > m2_mar),
                 msg=(f"i.atcorr and i.atcorr2 disagree on continental vs maritime "
