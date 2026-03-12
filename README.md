@@ -13,7 +13,7 @@ Atmospheric correction for single-band rasters using the
 | **Language** | C++ | Python |
 | **Engine** | 6S (C++ port of Fortran, pixel-by-pixel) | 6SV2.1 via `grass_sixsv` (LUT-based) |
 | **Parameter input** | 6S conditions text file (`parameters=`, required) | Explicit GRASS options; 6S file optionally accepted for backward compatibility |
-| **Spectral band** | Sensor codes (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (24 sensors) **or** explicit `wavelength=` µm |
+| **Spectral band** | Sensor codes (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (36 sensors) **or** explicit `wavelength=` µm |
 | **Atmospheric model** | Codes 0–6 in the conditions file | Named options: `us62`, `tropical`, `midsum`, … |
 | **Aerosol concentration** | Visibility (km) or AOD in conditions file | `aod=` LUT grid + `aod_val=` scene value |
 | **Water vapour** | Fixed per-scene from atmospheric model | `h2o=` LUT grid + `h2o_val=` scene value |
@@ -107,16 +107,54 @@ i.atcorr2 \
 
 ---
 
+## Listing band names (`-l` flag)
+
+To see the available band names, centre wavelengths, and FWHM for any sensor,
+run with the `-l` flag:
+
+```sh
+# List bands for a specific sensor
+i.atcorr2 -l sensor=sentinel2a
+
+# List all sensor keys (omit sensor=)
+i.atcorr2 -l
+```
+
+Example output for `sensor=landsat9_oli2`:
+
+```
+Bands for sensor 'landsat9_oli2':
+  Band name                   Centre (µm)   FWHM (nm)
+  -------------------------  ------------  ----------
+  CoastalAerosol                   0.4428        20.0
+  Blue                             0.4823        60.0
+  Green                            0.5609        57.0
+  Pan                              0.5939       172.0
+  Red                              0.6543        37.0
+  NIR                              0.8646        28.0
+  Cirrus                           1.3740        21.0
+  SWIR1                            1.6084        85.0
+  SWIR2                            2.2011       187.0
+```
+
+---
+
 ## Supported sensors (`sensor=`)
 
-24 multispectral sensors are supported via SRF CSV files in `sensors_csv/`.
+36 multispectral sensors are supported via SRF CSV files in `sensors_csv/`.
 Band centre wavelengths are computed as the SRF-weighted mean; FWHM values
 are derived from the half-maximum criterion or official datasheet overrides.
 
-| Sensor key | Satellite |
+| Sensor key | Satellite / instrument |
 |---|---|
-| `sentinel2a`, `sentinel2b` | Sentinel-2A/B (MSI) |
-| `landsat7_etm`, `landsat8` | Landsat 7 ETM+, Landsat 8 OLI |
+| `sentinel2a`, `sentinel2b`, `sentinel2c` | Sentinel-2A/B/C (MSI) |
+| `landsat9_oli2`, `landsat8` | Landsat 9 OLI-2, Landsat 8 OLI |
+| `landsat7_etm` | Landsat 7 ETM+ |
+| `landsat5_tm`, `landsat4_tm` | Landsat 4/5 TM |
+| `landsat5_mss`, `landsat4_mss`, `landsat3_mss`, `landsat2_mss`, `landsat1_mss` | Landsat 1–5 MSS |
+| `modis_terra` | MODIS Terra (bands 1–19, solar reflective) |
+| `aster` | Terra ASTER (VNIR + SWIR, bands 1–9) |
+| `eo1_ali` | EO-1 ALI |
 | `spot6`, `spot7` | SPOT-6/7 |
 | `pleiades1a`, `pleiades1b` | Pléiades-1A/B |
 | `worldview2`, `worldview3`, `worldview4` | WorldView-2/3/4 |
@@ -129,8 +167,7 @@ are derived from the half-maximum criterion or official datasheet overrides.
 | `vgt1_spot4`, `vgt2_spot5` | SPOT-4/5 VEGETATION |
 | `prism_b`, `prism_f`, `prism_n` | ALOS PRISM (backward/forward/nadir) |
 
-Use `python3 -c "import sensors; print(sensors.list_bands('sentinel2a'))"` to
-list band names for a given sensor.
+Run `i.atcorr2 -l sensor=<key>` to list band names for any sensor.
 
 ---
 

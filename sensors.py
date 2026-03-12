@@ -35,9 +35,12 @@ FWHM sources
 ------------
 Sensors using official values in :data:`_FWHM_OVERRIDES`:
 
-- **Sentinel-2A/B**: ESA Spectral Response Functions document, 2021 edition.
-- **Landsat 7 ETM+**: NASA/USGS band designation tables (range → FWHM).
+- **Sentinel-2A/B/C**: ESA Spectral Response Functions document, 2021 edition.
+- **Landsat 9 OLI-2**: USGS OLI-2 GLAMR-derived band summary (L9_OLI2_RSR.xlsx).
 - **Landsat 8 OLI**: USGS OLI spectral band parameter tables.
+- **Landsat 7 ETM+**: NASA/USGS band designation tables (range → FWHM).
+- **Landsat 4/5 TM**: USGS TM band designation tables (range → FWHM).
+- **Landsat 1–5 MSS**: USGS MSS band summary 50%-point ranges.
 - **RapidEye**: Planet Labs Spectral Response Curves datasheet, Rev. C (2020).
 - **AVNIR-2**: JAXA ALOS Mission Overview instrument specification.
 - **QuickBird-2**: DigitalGlobe imagery user guide band limits.  The SRF CSV
@@ -50,8 +53,8 @@ Sensors using official values in :data:`_FWHM_OVERRIDES`:
 Sensors using SRF-computed FWHM (all others):
 
 - SPOT-6/7, Pleiades-1A/B, WorldView-2/3/4, GeoEye-1, IKONOS, PlanetScope,
-  VGT1/VGT2 (B0/B2/B3 bands), PRISM-B/F/N — computed from the Airbus,
-  DigitalGlobe, and Planet SRF CSV files in ``sensors_csv/``.
+  VGT1/VGT2 (B0/B2/B3 bands), PRISM-B/F/N, MODIS Terra, ASTER VNIR/SWIR,
+  EO-1 ALI — computed from the SRF CSV files in ``sensors_csv/``.
 """
 
 import csv
@@ -64,10 +67,29 @@ _CSV_DIR = os.path.join(_HERE, "sensors_csv")
 
 # Map from user-facing sensor key → CSV filename in sensors_csv/
 SENSORS = {
+    # ── Sentinel-2 ────────────────────────────────────────────────────────────
     "sentinel2a":        "sentinel_2A_msi.csv",
     "sentinel2b":        "sentinel_2B_msi.csv",
+    "sentinel2c":        "sentinel2c.csv",
+    # ── Landsat (OLI) ─────────────────────────────────────────────────────────
+    "landsat9_oli2":     "landsat9_oli2.csv",
     "landsat8":          "landsat_8.csv",
+    # ── Landsat (TM) ──────────────────────────────────────────────────────────
+    "landsat5_tm":       "landsat5_tm.csv",
+    "landsat4_tm":       "landsat4_tm.csv",
+    # ── Landsat (ETM+) ────────────────────────────────────────────────────────
     "landsat7_etm":      "etmplus.csv",
+    # ── Landsat (MSS) ─────────────────────────────────────────────────────────
+    "landsat5_mss":      "landsat5_mss.csv",
+    "landsat4_mss":      "landsat4_mss.csv",
+    "landsat3_mss":      "landsat3_mss.csv",
+    "landsat2_mss":      "landsat2_mss.csv",
+    "landsat1_mss":      "landsat1_mss.csv",
+    # ── MODIS / ASTER / EO-1 ──────────────────────────────────────────────────
+    "modis_terra":       "modis_terra.csv",
+    "aster":             "aster_vnir_swir.csv",
+    "eo1_ali":           "eo1_ali.csv",
+    # ── Commercial VHR ────────────────────────────────────────────────────────
     "worldview2":        "worldview2.csv",
     "worldview3":        "worldview3.csv",
     "worldview4":        "worldview4.csv",
@@ -80,11 +102,14 @@ SENSORS = {
     "pleiades1a":        "pleiades1a.csv",
     "pleiades1b":        "pleiades1b.csv",
     "avnir":             "AVNIR.csv",
+    # ── SPOT-4/5 VGT ──────────────────────────────────────────────────────────
     "vgt1_spot4":        "VGT1_spot4.csv",
     "vgt2_spot5":        "VGT2_spot5.csv",
+    # ── PlanetScope ───────────────────────────────────────────────────────────
     "planetscope_0c_0d": "planetscope_0c_0d.csv",
     "planetscope_0e":    "planetscope_0e.csv",
     "planetscope_0f_10": "planetscope_0f_10.csv",
+    # ── PRISM (ALOS-2) ────────────────────────────────────────────────────────
     "prism_b":           "PRISM-B.csv",
     "prism_f":           "PRISM-F.csv",
     "prism_n":           "PRISM-N.csv",
@@ -120,6 +145,22 @@ _FWHM_OVERRIDES: dict[str, dict[str, float]] = {
         "S2A_SR_AV_B11": 90.0,   # 1610 nm – SWIR 1
         "S2A_SR_AV_B12":180.0,   # 2190 nm – SWIR 2
     },
+    # ── Sentinel-2C (ESA official — from same SRF document as 2A/2B) ──────
+    "sentinel2c": {
+        "S2C_SR_AV_B1":  20.0,   # 443 nm – Coastal aerosol
+        "S2C_SR_AV_B2":  65.0,   # 492 nm – Blue
+        "S2C_SR_AV_B3":  35.0,   # 560 nm – Green
+        "S2C_SR_AV_B4":  30.0,   # 665 nm – Red
+        "S2C_SR_AV_B5":  15.0,   # 704 nm – Red Edge 1
+        "S2C_SR_AV_B6":  15.0,   # 739 nm – Red Edge 2
+        "S2C_SR_AV_B7":  20.0,   # 780 nm – Red Edge 3
+        "S2C_SR_AV_B8": 115.0,   # 842 nm – NIR broad
+        "S2C_SR_AV_B8A": 20.0,   # 864 nm – NIR narrow
+        "S2C_SR_AV_B9":  20.0,   # 943 nm – Water vapour
+        "S2C_SR_AV_B10": 30.0,   # 1375 nm – Cirrus
+        "S2C_SR_AV_B11": 90.0,   # 1610 nm – SWIR 1
+        "S2C_SR_AV_B12":180.0,   # 2190 nm – SWIR 2
+    },
     # ── Sentinel-2B (ESA official — slightly different from 2A) ───────────
     "sentinel2b": {
         "SR_AV_B1":  20.0,   # 442 nm – Coastal aerosol
@@ -146,6 +187,18 @@ _FWHM_OVERRIDES: dict[str, dict[str, float]] = {
         "7 swir 2":     270.0,   # 2080–2350 nm
         "pan":          380.0,   # 520–900 nm
     },
+    # ── Landsat 9 OLI-2 (USGS GLAMR band summary) ─────────────────────────
+    "landsat9_oli2": {
+        "CoastalAerosol": 20.0,  # 435–451 nm
+        "Blue":           60.0,  # 452–512 nm
+        "Green":          57.0,  # 533–590 nm
+        "Red":            37.0,  # 636–673 nm
+        "NIR":            28.0,  # 851–879 nm
+        "Cirrus":         21.0,  # 1363–1384 nm
+        "SWIR1":          85.0,  # 1566–1651 nm
+        "SWIR2":         187.0,  # 2107–2294 nm
+        "Pan":           172.0,  # 503–676 nm
+    },
     # ── Landsat 8 OLI (USGS band parameters) ──────────────────────────────
     "landsat8": {
         "Coastal Aerosol": 20.0,  # 430–450 nm
@@ -157,6 +210,60 @@ _FWHM_OVERRIDES: dict[str, dict[str, float]] = {
         "SWIR1":           80.0,  # 1570–1650 nm
         "SWIR2":          180.0,  # 2110–2290 nm
         "Pan":            180.0,  # 500–680 nm
+    },
+    # ── Landsat 5 TM (USGS band ranges) ───────────────────────────────────
+    "landsat5_tm": {
+        "Blue":   70.0,   # 450–520 nm
+        "Green":  80.0,   # 520–600 nm
+        "Red":    60.0,   # 630–690 nm
+        "NIR":   130.0,   # 760–900 nm
+        "SWIR1": 200.0,   # 1550–1750 nm
+        "SWIR2": 270.0,   # 2080–2350 nm
+    },
+    # ── Landsat 4 TM (same band spec as L5 TM) ────────────────────────────
+    "landsat4_tm": {
+        "Blue":   70.0,
+        "Green":  80.0,
+        "Red":    60.0,
+        "NIR":   130.0,
+        "SWIR1": 200.0,
+        "SWIR2": 270.0,
+    },
+    # ── Landsat 1–3 MSS (USGS band summary 50%-point ranges) ──────────────
+    # L1: Green 504–602=98, Red 605–701=96, NIR1 703–793=90, NIR2 802–1094=292
+    "landsat1_mss": {
+        "Green":  98.0,
+        "Red":    96.0,
+        "NIR1":   90.0,
+        "NIR2":  292.0,
+    },
+    # L2: Green 498–600=102, Red 607–711=104, NIR1 706–784=78, NIR2 804–1095=291
+    "landsat2_mss": {
+        "Green": 102.0,
+        "Red":   104.0,
+        "NIR1":   78.0,
+        "NIR2":  291.0,
+    },
+    # L3: Green 495–593=98, Red 607–704=97, NIR1 702–793=91, NIR2 804–1088=284
+    "landsat3_mss": {
+        "Green":  98.0,
+        "Red":    97.0,
+        "NIR1":   91.0,
+        "NIR2":  284.0,
+    },
+    # ── Landsat 4–5 MSS (USGS band summary 50%-point ranges) ──────────────
+    # L4 MSS Band 1 Green 500–600, Band 2 Red 600–700, Band 3 NIR1 700–800, Band 4 NIR2 800–1100
+    "landsat4_mss": {
+        "Green": 100.0,
+        "Red":   100.0,
+        "NIR1":  100.0,
+        "NIR2":  300.0,
+    },
+    "landsat5_mss": {
+        "Green": 100.0,
+        "Red":   100.0,
+        "NIR1":  100.0,
+        "NIR2":  300.0,
     },
     # ── RapidEye (Planet Labs datasheet 2020) ─────────────────────────────
     "rapideye": {
@@ -367,6 +474,53 @@ def load_band_specs(sensor_key):
     specs = {name: (centers[name], fwhms[name])
              for name in centers if name in fwhms}
     return dict(sorted(specs.items(), key=lambda kv: kv[1][0]))
+
+def find_sensor_for_band(band_name):
+    """Find the sensor key(s) that contain *band_name* in their SRF table.
+
+    Searches all sensor CSVs and returns the unique sensor key whose band list
+    includes *band_name*.  Raises :exc:`ValueError` when the name is ambiguous
+    (found in more than one sensor) or not found in any sensor.
+
+    Parameters
+    ----------
+    band_name : str
+        Exact band column name as it appears in the sensor SRF CSV header.
+
+    Returns
+    -------
+    str
+        The unique sensor key (from :data:`SENSORS`) that contains *band_name*.
+
+    Raises
+    ------
+    ValueError
+        If *band_name* is not found in any sensor, or if it is found in more
+        than one sensor (use ``sensor=`` explicitly in that case).
+    """
+    matches = []
+    for key in SENSORS:
+        try:
+            centers = load_band_centers(key)
+        except Exception:
+            continue
+        if band_name in centers:
+            matches.append(key)
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) == 0:
+        known = sorted(SENSORS.keys())
+        raise ValueError(
+            f"Band '{band_name}' not found in any sensor SRF table. "
+            f"Available sensors: {', '.join(known)}. "
+            "Use list_bands(sensor_key) to see band names for a sensor."
+        )
+    raise ValueError(
+        f"Band '{band_name}' is ambiguous — found in sensors: "
+        f"{', '.join(sorted(matches))}. "
+        "Specify sensor= explicitly."
+    )
+
 
 def list_sensors():
     """Return the list of available sensor keys.

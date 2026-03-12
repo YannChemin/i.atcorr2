@@ -63,7 +63,7 @@ Explicit <tt>wavelength=</tt> overrides the automatic lookup.
 <tr>
   <td>Spectral band</td>
   <td>Sensor code (iwave &minus;2 to 33) or wl range in conditions file</td>
-  <td><tt>sensor=</tt>/<tt>band=</tt> SRF lookup (24 sensors) <b>or</b>
+  <td><tt>sensor=</tt>/<tt>band=</tt> SRF lookup (36 sensors) <b>or</b>
       explicit <tt>wavelength=</tt> &micro;m</td>
 </tr>
 <tr>
@@ -241,22 +241,42 @@ value from <tt>parameters=</tt> file &gt; median of <tt>aod=</tt> grid.
 sets the value used for pixel-level correction.
 </p>
 
-<h3>E. Sensor and band (<tt>sensor=</tt>, <tt>band=</tt>)</h3>
+<h3>E. Sensor and band (<tt>sensor=</tt>, <tt>band=</tt>, <b>-l</b>)</h3>
 
 <p>
-When <tt>sensor=</tt> and <tt>band=</tt> are both provided, the SRF-weighted
-centre wavelength is looked up automatically from the sensor CSV files in
-<tt>sensors_csv/</tt>.  The 24 supported sensor keys are:
+When <tt>band=</tt> is provided, the SRF-weighted centre wavelength is looked
+up automatically.  If <tt>sensor=</tt> is omitted, the sensor is inferred from
+the band name; <tt>sensor=</tt> only needs to be given when the same band name
+exists in more than one sensor.
 </p>
 <p>
-<tt>sentinel2a</tt>, <tt>sentinel2b</tt>, <tt>landsat7_etm</tt>,
-<tt>landsat8</tt>, <tt>spot6</tt>, <tt>spot7</tt>, <tt>pleiades1a</tt>,
-<tt>pleiades1b</tt>, <tt>worldview2</tt>, <tt>worldview3</tt>,
-<tt>worldview4</tt>, <tt>geoeye1</tt>, <tt>quickbird2</tt>,
-<tt>ikonos</tt>, <tt>rapideye</tt>, <tt>planetscope_0c_0d</tt>,
-<tt>planetscope_0e</tt>, <tt>planetscope_0f_10</tt>, <tt>avnir</tt>,
-<tt>vgt1_spot4</tt>, <tt>vgt2_spot5</tt>, <tt>prism_b</tt>,
-<tt>prism_f</tt>, <tt>prism_n</tt>.
+To list available band names before running a correction, use the <b>-l</b>
+flag (the same pattern used by <em>i.landsat.toar</em>):
+</p>
+<div class="code"><pre>
+# List band names, centre wavelengths, and FWHM for a sensor
+i.atcorr2 -l sensor=sentinel2a
+
+# List all available sensor keys (omit sensor=)
+i.atcorr2 -l
+</pre></div>
+<p>
+36 sensor keys are supported:
+</p>
+<p>
+<tt>sentinel2a</tt>, <tt>sentinel2b</tt>, <tt>sentinel2c</tt>,
+<tt>landsat9_oli2</tt>, <tt>landsat8</tt>, <tt>landsat7_etm</tt>,
+<tt>landsat5_tm</tt>, <tt>landsat4_tm</tt>,
+<tt>landsat5_mss</tt>, <tt>landsat4_mss</tt>, <tt>landsat3_mss</tt>,
+<tt>landsat2_mss</tt>, <tt>landsat1_mss</tt>,
+<tt>modis_terra</tt>, <tt>aster</tt>, <tt>eo1_ali</tt>,
+<tt>spot6</tt>, <tt>spot7</tt>, <tt>pleiades1a</tt>, <tt>pleiades1b</tt>,
+<tt>worldview2</tt>, <tt>worldview3</tt>, <tt>worldview4</tt>,
+<tt>geoeye1</tt>, <tt>quickbird2</tt>, <tt>ikonos</tt>, <tt>rapideye</tt>,
+<tt>planetscope_0c_0d</tt>, <tt>planetscope_0e</tt>,
+<tt>planetscope_0f_10</tt>, <tt>avnir</tt>,
+<tt>vgt1_spot4</tt>, <tt>vgt2_spot5</tt>,
+<tt>prism_b</tt>, <tt>prism_f</tt>, <tt>prism_n</tt>.
 </p>
 <p>
 <tt>wavelength=</tt> overrides <tt>sensor=</tt>/<tt>band=</tt> when supplied

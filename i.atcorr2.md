@@ -34,7 +34,7 @@ overrides the automatic lookup.
 | **Language** | C++ | Python |
 | **Engine** | 6S C++ port, pixel-by-pixel | 6SV2.1 via `grass_sixsv`, LUT-based |
 | **Parameter input** | 6S conditions text file (`parameters=`, required) | Explicit GRASS options; 6S file optionally accepted for backward compatibility |
-| **Spectral band** | Sensor code (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (24 sensors) **or** `wavelength=` µm |
+| **Spectral band** | Sensor code (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (36 sensors) **or** `wavelength=` µm |
 | **Atmospheric model** | Numeric code 0–6 in conditions file | Named option: `us62`, `tropical`, `midsum`, … |
 | **Aerosol concentration** | Visibility (km) or AOD in conditions file | `aod=` LUT grid + `aod_val=` scene value |
 | **Water vapour** | Fixed by atmospheric model | `h2o=` LUT grid + `h2o_val=` scene value |
@@ -134,16 +134,35 @@ for correction.  The priority chain is: `aod_map=` > `visibility=`
 `h2o=` defines the column water vapour grid in g/cm² (e.g. `h2o=1.0,2.0,3.5`).
 `h2o_val=` (or `h2o_map=`) sets the value used for pixel-level correction.
 
-### E. Sensor and band (`sensor=`, `band=`)
+### E. Sensor and band (`sensor=`, `band=`, `-l`)
 
-When `sensor=` and `band=` are both provided, the SRF-weighted centre
-wavelength is looked up automatically from the sensor CSV files in
-`sensors_csv/`.  The 24 supported sensor keys are:
+When `band=` is provided, the SRF-weighted centre wavelength is looked up
+automatically.  If `sensor=` is omitted, the sensor is inferred from the band
+name; `sensor=` only needs to be given when the same band name exists in more
+than one sensor.
 
-`sentinel2a`, `sentinel2b`, `landsat7_etm`, `landsat8`, `spot6`, `spot7`,
-`pleiades1a`, `pleiades1b`, `worldview2`, `worldview3`, `worldview4`,
-`geoeye1`, `quickbird2`, `ikonos`, `rapideye`, `planetscope_0c_0d`,
-`planetscope_0e`, `planetscope_0f_10`, `avnir`, `vgt1_spot4`, `vgt2_spot5`,
+To list available band names before running a correction, use the `-l` flag:
+
+```sh
+# List band names, centre wavelengths, and FWHM for a sensor
+i.atcorr2 -l sensor=sentinel2a
+
+# List all available sensor keys (omit sensor=)
+i.atcorr2 -l
+```
+
+36 sensor keys are supported:
+
+`sentinel2a`, `sentinel2b`, `sentinel2c`,
+`landsat9_oli2`, `landsat8`, `landsat7_etm`,
+`landsat5_tm`, `landsat4_tm`,
+`landsat5_mss`, `landsat4_mss`, `landsat3_mss`, `landsat2_mss`, `landsat1_mss`,
+`modis_terra`, `aster`, `eo1_ali`,
+`spot6`, `spot7`, `pleiades1a`, `pleiades1b`,
+`worldview2`, `worldview3`, `worldview4`,
+`geoeye1`, `quickbird2`, `ikonos`, `rapideye`,
+`planetscope_0c_0d`, `planetscope_0e`, `planetscope_0f_10`,
+`avnir`, `vgt1_spot4`, `vgt2_spot5`,
 `prism_b`, `prism_f`, `prism_n`.
 
 `wavelength=` overrides `sensor=`/`band=` when given explicitly.

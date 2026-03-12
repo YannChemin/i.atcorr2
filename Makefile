@@ -35,4 +35,16 @@ install:
 	$(INSTALL_DATA) $(ARCH_DISTDIR)/docs/man/man1/$(PGM).1 \
 	    $(INST_DIR)/docs/man/man1/ 2>/dev/null || true
 
-.PHONY: install
+# ── Python module installation ────────────────────────────────────────────────
+# Installs the Python front-end, the sensors helper, and the SRF CSV data.
+# sensors.py locates sensors_csv/ relative to __file__, so both must land
+# in $(INST_DIR)/scripts/.
+install_py:
+	$(INSTALL) i.atcorr2.py $(INST_DIR)/scripts/$(PGM)
+	$(INSTALL_DATA) sensors.py $(INST_DIR)/scripts/sensors.py
+	$(INSTALL) -d $(INST_DIR)/scripts/sensors_csv
+	$(INSTALL_DATA) sensors_csv/*.csv $(INST_DIR)/scripts/sensors_csv/
+	$(INSTALL_DATA) sensors_csv/README $(INST_DIR)/scripts/sensors_csv/
+	$(INSTALL_DATA) i.atcorr2.html $(INST_DIR)/docs/html/
+
+.PHONY: install install_py

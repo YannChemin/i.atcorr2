@@ -50,9 +50,9 @@ NOTES:
 # % key: sensor
 # % type: string
 # % required: no
-# % label: Satellite/sensor name
-# % description: When given with band=, the SRF-weighted centre wavelength is looked up automatically
-# % options: avnir,geoeye1,ikonos,landsat7_etm,landsat8,planetscope_0c_0d,planetscope_0e,planetscope_0f_10,pleiades1a,pleiades1b,prism_b,prism_f,prism_n,quickbird2,rapideye,sentinel2a,sentinel2b,spot6,spot7,vgt1_spot4,vgt2_spot5,worldview2,worldview3,worldview4
+# % label: Satellite/sensor name (optional, auto-detected from band=)
+# % description: If omitted, the sensor is inferred from the band name; only needed when the band name is ambiguous across sensors
+# % options: aster,avnir,eo1_ali,geoeye1,ikonos,landsat1_mss,landsat2_mss,landsat3_mss,landsat4_mss,landsat4_tm,landsat5_mss,landsat5_tm,landsat7_etm,landsat8,landsat9_oli2,modis_terra,planetscope_0c_0d,planetscope_0e,planetscope_0f_10,pleiades1a,pleiades1b,prism_b,prism_f,prism_n,quickbird2,rapideye,sentinel2a,sentinel2b,sentinel2c,spot6,spot7,vgt1_spot4,vgt2_spot5,worldview2,worldview3,worldview4
 # % guisection: Band
 # %end
 
@@ -61,7 +61,7 @@ NOTES:
 # % type: string
 # % required: no
 # % label: Band name within the selected sensor
-# % description: Exact band column name from the sensor SRF table (use sensor= help to list bands)
+# % description: Exact band column name from the sensor SRF table; run with -l flag (and sensor=) to list available names
 # % guisection: Band
 # %end
 
@@ -70,8 +70,8 @@ NOTES:
 # % type: double
 # % required: no
 # % label: Centre wavelength of the input band (µm)
-# % description: Overrides the automatic lookup from sensor=/band=; required when neither sensor nor parameters= is given
-# % guisection: Band
+# % description: Overrides the automatic lookup from band=; required when band= is not given and parameters= is absent
+# % guisection: Optional
 # %end
 
 # %option
@@ -253,7 +253,7 @@ NOTES:
 # % required: no
 # % label: 6S parameter file (i.atcorr format)
 # % description: When provided, extracts SZA and geometry from the file; explicit options override file values
-# % guisection: Input
+# % guisection: Optional
 # %end
 
 # %option G_OPT_F_OUTPUT
@@ -262,6 +262,12 @@ NOTES:
 # % label: Binary LUT output/input file
 # % description: If the file exists it is loaded; otherwise the LUT is computed and saved
 # % guisection: Output
+# %end
+
+# %flag
+# % key: l
+# % description: List available band names for the selected sensor and exit
+# % guisection: Band
 # %end
 
 # %flag
@@ -589,6 +595,26 @@ def main():
     """
     opts  = gs.parser()
 
+    # ── -l: list bands for sensor and exit ───────────────────────────────────
+    if opts["l"]:
+        sensor_key = opts["sensor"]
+        if not sensor_key:
+            # No sensor given — list all sensors
+            print("Available sensors (use sensor= to filter):")
+            for key in sorted(_sensors.SENSORS.keys()):
+                print(f"  {key}")
+            return
+        try:
+            specs = _sensors.load_band_specs(sensor_key)
+        except (KeyError, FileNotFoundError) as exc:
+            gs.fatal(f"Cannot load sensor '{sensor_key}': {exc}")
+        print(f"Bands for sensor '{sensor_key}':")
+        print(f"  {'Band name':<25}  {'Centre (µm)':>12}  {'FWHM (nm)':>10}")
+        print(f"  {'-'*25}  {'-'*12}  {'-'*10}")
+        for band, (centre_um, fwhm_nm) in specs.items():
+            print(f"  {band:<25}  {centre_um:>12.4f}  {fwhm_nm:>10.1f}")
+        return
+
     # ── Locate and import the libsixsv Python API ────────────────────────────
     api_dir = _find_atcorr_api()
     if api_dir is None:
@@ -652,29 +678,39 @@ def main():
     # ── Wavelength ────────────────────────────────────────────────────────────
     wavelength = float(opts["wavelength"]) if opts["wavelength"] else None
 
-    if wavelength is None and opts["sensor"] and opts["band"]:
-        # Look up SRF-weighted centre wavelength from the sensor table
-        try:
-            band_centers = _sensors.load_band_centers(opts["sensor"])
-        except (KeyError, FileNotFoundError) as exc:
-            gs.fatal(f"Cannot load sensor '{opts['sensor']}': {exc}")
+    if wavelength is None and opts["band"]:
         band_key = opts["band"]
+        sensor_key = opts["sensor"] or None
+
+        # Auto-detect sensor from band name when sensor= is not given
+        if sensor_key is None:
+            try:
+                sensor_key = _sensors.find_sensor_for_band(band_key)
+                gs.verbose(f"Auto-detected sensor '{sensor_key}' for band '{band_key}'")
+            except ValueError as exc:
+                gs.fatal(str(exc))
+
+        try:
+            band_centers = _sensors.load_band_centers(sensor_key)
+        except (KeyError, FileNotFoundError) as exc:
+            gs.fatal(f"Cannot load sensor '{sensor_key}': {exc}")
+
         if band_key not in band_centers:
             available = ", ".join(sorted(band_centers.keys()))
             gs.fatal(
-                f"Band '{band_key}' not found for sensor '{opts['sensor']}'. "
+                f"Band '{band_key}' not found for sensor '{sensor_key}'. "
                 f"Available bands: {available}"
             )
         wavelength = band_centers[band_key]
         gs.verbose(
-            f"Sensor {opts['sensor']} band {band_key} → "
+            f"Sensor '{sensor_key}' band '{band_key}' → "
             f"centre wavelength {wavelength:.4f} µm"
         )
 
     if wavelength is None:
         gs.fatal(
-            "wavelength= (µm) is required, or specify sensor= and band= "
-            "for automatic SRF-weighted lookup."
+            "wavelength= (µm) is required, or specify band= "
+            "(optionally sensor=) for automatic SRF-weighted lookup."
         )
     wl_arr = np.array([wavelength], dtype=np.float32)
 
