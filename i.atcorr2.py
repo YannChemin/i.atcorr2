@@ -54,7 +54,7 @@ NOTES:
 # % required: no
 # % label: Satellite/sensor name (optional, auto-detected from band=)
 # % description: If omitted, the sensor is inferred from the band name; only needed when the band name is ambiguous across sensors
-# % options: amazonia1,aster,avnir,cbers4a_mux,eo1_ali,geoeye1,ikonos,landsat1_mss,landsat2_mss,landsat3_mss,landsat4_mss,landsat4_tm,landsat5_mss,landsat5_tm,landsat7_etm,landsat8,landsat9_oli2,modis_terra,planetscope_0c_0d,planetscope_0e,planetscope_0f_10,pleiades1a,pleiades1b,pleiades_neo,prism_b,prism_f,prism_n,quickbird2,rapideye,sentinel2a,sentinel2b,sentinel2c,spot6,spot7,vgt1_spot4,vgt2_spot5,worldview2,worldview3,worldview4
+# % options: amazonia1,aster,avnir,cbers4a_mux,eo1_ali,geoeye1,ikonos,landsat1_mss,landsat2_mss,landsat3_mss,landsat4_mss,landsat4_tm,landsat5_mss,landsat5_tm,landsat7_etm,landsat8,landsat9_oli2,modis_terra,planetscope_0c_0d,planetscope_0e,planetscope_0f_10,planetscope_dove_r,planetscope_superdove,pleiades1a,pleiades1b,pleiades_neo,prism_b,prism_f,prism_n,quickbird2,rapideye,sentinel2a,sentinel2b,sentinel2c,skysat_1_2,skysat_3_13,skysat_14_19,spot6,spot7,vgt1_spot4,vgt2_spot5,worldview2,worldview3,worldview4
 # % guisection: Band
 # %end
 

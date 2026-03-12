@@ -112,9 +112,15 @@ SENSORS = {
     "vgt1_spot4":        "VGT1_spot4.csv",
     "vgt2_spot5":        "VGT2_spot5.csv",
     # ── PlanetScope ───────────────────────────────────────────────────────────
-    "planetscope_0c_0d": "planetscope_0c_0d.csv",
-    "planetscope_0e":    "planetscope_0e.csv",
-    "planetscope_0f_10": "planetscope_0f_10.csv",
+    "planetscope_0c_0d":    "planetscope_0c_0d.csv",
+    "planetscope_0e":       "planetscope_0e.csv",
+    "planetscope_0f_10":    "planetscope_0f_10.csv",
+    "planetscope_dove_r":   "planetscope_dove_r.csv",
+    "planetscope_superdove": "planetscope_superdove.csv",
+    # ── SkySat ─────────────────────────────────────────────────────────────────
+    "skysat_1_2":   "skysat_1_2.csv",
+    "skysat_3_13":  "skysat_3_13.csv",
+    "skysat_14_19": "skysat_14_19.csv",
     # ── PRISM (ALOS-2) ────────────────────────────────────────────────────────
     "prism_b":           "PRISM-B.csv",
     "prism_f":           "PRISM-F.csv",
@@ -306,6 +312,16 @@ _FWHM_OVERRIDES: dict[str, dict[str, float]] = {
         "NIR":      98.0,   # 760–850 nm
     },
     # ── QuickBird-2 (DigitalGlobe imagery user guide — band limits) ───────────
+    # ── IKONOS (Space Imaging / GeoEye spectral characterisation report) ──────
+    # Trapezoidal CSV generated from official band limits.
+    # Official FWHM values taken directly from the characterisation table.
+    "ikonos": {
+        "Panchromatic": 403.0,  # 525.8–928.5 nm
+        "Blue":          71.3,  # 444.7–516.0 nm
+        "Green":         88.6,  # 506.4–595.0 nm
+        "Red":           65.8,  # 631.9–697.7 nm
+        "NIR":           95.4,  # 757.3–852.7 nm
+    },
     # SRF CSV tails extend far outside the true passband, making the half-max
     # criterion unreliable.  Official limits used instead:
     #   Pan 450–900 nm, Blue 450–520, Green 520–600, Red 630–690, NIR 760–900.

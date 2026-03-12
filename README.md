@@ -13,7 +13,7 @@ Atmospheric correction for single-band rasters using the
 | **Language** | C++ | Python |
 | **Engine** | 6S (C++ port of Fortran, pixel-by-pixel) | 6SV2.1 via `grass_sixsv` (LUT-based) |
 | **Parameter input** | 6S conditions text file (`parameters=`, required) | Explicit GRASS options; 6S file optionally accepted for backward compatibility |
-| **Spectral band** | Sensor codes (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (39 sensors) **or** explicit `wavelength=` µm |
+| **Spectral band** | Sensor codes (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (44 sensors) **or** explicit `wavelength=` µm |
 | **Atmospheric model** | Codes 0–6 in the conditions file | Named options: `us62`, `tropical`, `midsum`, … |
 | **Aerosol concentration** | Visibility (km) or AOD in conditions file | `aod=` LUT grid + `aod_val=` scene value |
 | **Water vapour** | Fixed per-scene from atmospheric model | `h2o=` LUT grid + `h2o_val=` scene value |
@@ -141,7 +141,7 @@ Bands for sensor 'landsat9_oli2':
 
 ## Supported sensors (`sensor=`)
 
-39 multispectral sensors are supported via SRF CSV files in `sensors_csv/`.
+44 multispectral sensors are supported via SRF CSV files in `sensors_csv/`.
 Band centre wavelengths are computed as the SRF-weighted mean; FWHM values
 are derived from the half-maximum criterion or official datasheet overrides.
 Sensors marked † use trapezoidal SRF approximations derived from official
@@ -167,7 +167,10 @@ band-limit tables (no digitized per-wavelength RSR was published).
 | `quickbird2` | QuickBird-2 |
 | `ikonos` | IKONOS |
 | `rapideye` | RapidEye |
-| `planetscope_0c_0d`, `planetscope_0e`, `planetscope_0f_10` | PlanetScope |
+| `planetscope_0c_0d`, `planetscope_0e`, `planetscope_0f_10` | PlanetScope Dove Classic (4-band) |
+| `planetscope_dove_r` | PlanetScope Dove-R / PS2.SD (4-band) |
+| `planetscope_superdove` | PlanetScope SuperDove / PSB.SD (8-band) |
+| `skysat_1_2`, `skysat_3_13`, `skysat_14_19` | Planet SkySat (5-band incl. Pan; by generation) |
 | `avnir` | ALOS AVNIR-2 |
 | `vgt1_spot4`, `vgt2_spot5` | SPOT-4/5 VEGETATION |
 | `prism_b`, `prism_f`, `prism_n` | ALOS PRISM (backward/forward/nadir) |

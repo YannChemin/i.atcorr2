@@ -34,7 +34,7 @@ overrides the automatic lookup.
 | **Language** | C++ | Python |
 | **Engine** | 6S C++ port, pixel-by-pixel | 6SV2.1 via `grass_sixsv`, LUT-based |
 | **Parameter input** | 6S conditions text file (`parameters=`, required) | Explicit GRASS options; 6S file optionally accepted for backward compatibility |
-| **Spectral band** | Sensor code (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (39 sensors) **or** `wavelength=` µm |
+| **Spectral band** | Sensor code (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (44 sensors) **or** `wavelength=` µm |
 | **Atmospheric model** | Numeric code 0–6 in conditions file | Named option: `us62`, `tropical`, `midsum`, … |
 | **Aerosol concentration** | Visibility (km) or AOD in conditions file | `aod=` LUT grid + `aod_val=` scene value |
 | **Water vapour** | Fixed by atmospheric model | `h2o=` LUT grid + `h2o_val=` scene value |
@@ -151,7 +151,7 @@ i.atcorr2 -l sensor=sentinel2a
 i.atcorr2 -l
 ```
 
-39 sensor keys are supported († = trapezoidal SRF from band-limit tables;
+44 sensor keys are supported († = trapezoidal SRF from band-limit tables;
 no digitized per-wavelength RSR was published for these sensors):
 
 `sentinel2a`, `sentinel2b`, `sentinel2c`,
@@ -164,6 +164,8 @@ no digitized per-wavelength RSR was published for these sensors):
 `worldview2`, `worldview3`, `worldview4`,
 `geoeye1`, `quickbird2`, `ikonos`, `rapideye`,
 `planetscope_0c_0d`, `planetscope_0e`, `planetscope_0f_10`,
+`planetscope_dove_r`, `planetscope_superdove`,
+`skysat_1_2`, `skysat_3_13`, `skysat_14_19`,
 `avnir`, `vgt1_spot4`, `vgt2_spot5`,
 `prism_b`, `prism_f`, `prism_n`.
 
