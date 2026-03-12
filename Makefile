@@ -2,33 +2,24 @@ MODULE_TOPDIR = $(HOME)/dev/grass
 
 PGM = i.atcorr2
 
-# ── grass_sixsv dependency ──────────────────────────────────────────────────
-# grass_sixsv is the standalone 6SV2.1 library built and installed from
-# ../libsixsv/ (https://github.com/YannChemin/libsixsv).
-# The lazy = assignment ensures GRASS_LIB_VERSION_NUMBER is resolved after
-# the include chain (Vars.make → Grass.make) has run.
-SIXSV_LIB_NAME = grass_sixsv.$(GRASS_LIB_VERSION_NUMBER)
-SIXSVLIB        = -l$(SIXSV_LIB_NAME)
-SIXSVDEP        = $(ARCH_LIBDIR)/$(SHLIB_PREFIX)$(SIXSV_LIB_NAME)$(SHLIB_SUFFIX)
-
 # ── Sources ─────────────────────────────────────────────────────────────────
 MOD_OBJS = main.o
 
 # ── Compiler / linker options ────────────────────────────────────────────────
-# atcorr.h lives in ../libsixsv/include/ in the build tree; after
-# install it is under $GISBASE/include/grass/ via the standard INC path.
-EXTRA_INC     = -I$(MODULE_TOPDIR)/../libsixsv/include
+# Uses the system-installed libsixsv (package libsixsv-dev / libsixsv1).
+# Headers: /usr/include/sixsv/   Library: /usr/lib/x86_64-linux-gnu/libsixsv.so
+EXTRA_INC     = -I/usr/include/sixsv
 EXTRA_CFLAGS  = -O3 -ffast-math -fopenmp -std=c11 \
                 -Wall -Wextra -Wno-unused-parameter
 EXTRA_LDFLAGS = -fopenmp
-LIBES         = $(SIXSVLIB) $(RASTERLIB) $(GISLIB) $(MATHLIB)
-DEPENDENCIES  = $(SIXSVDEP)
+LIBES         = -lsixsv $(RASTERLIB) $(GISLIB) $(MATHLIB)
 
 include $(MODULE_TOPDIR)/include/Make/Module.make
 
 default: cmd
 
 # ── Installation ─────────────────────────────────────────────────────────────
+# Overrides Module.make's install; warning about "ignoring old recipe" is expected.
 install: install_py
 	$(INSTALL) $(ARCH_DISTDIR)/bin/$(PGM)$(EXE) $(INST_DIR)/bin/
 	$(INSTALL_DATA) i.atcorr2.html $(INST_DIR)/docs/html/

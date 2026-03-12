@@ -17,7 +17,7 @@
  *  2. Read input raster row-by-row into fixed-size chunks (default) or all
  *     at once (-R flag).
  *  3. For each chunk, parallelise over pixels with OpenMP:
- *       DN  →  TOA reflectance  →  bilinear LUT interp  →  BOA inversion
+ *       radiance  →  TOA reflectance  →  bilinear LUT interp  →  BOA inversion
  *  4. Write output raster.
  *
  * Chunk default: ~256 MB working set; -R flag loads everything into RAM
@@ -36,8 +36,8 @@
 #include <string.h>
 #include <unistd.h>
 
-/* grass_sixsv public API */
-#include "atcorr.h"
+/* system libsixsv public API */
+#include <sixsv/atcorr.h>
 
 #ifdef _OPENMP
 #include <omp.h>
@@ -107,13 +107,13 @@ static int parse_csv_floats(const char *str, float *out, int max_n)
 static int atmo_str_to_int(const char *s)
 {
     if (!strcmp(s, "none"))       return 0;
-    if (!strcmp(s, "tropical"))   return 1;
-    if (!strcmp(s, "midsum"))     return 2;
-    if (!strcmp(s, "midwin"))     return 3;
-    if (!strcmp(s, "subarctsum")) return 4;
-    if (!strcmp(s, "suarctwint")) return 5;
-    if (!strcmp(s, "us62"))       return 6;
-    return 6;
+    if (!strcmp(s, "us62"))       return ATMO_US62;       /* 1 */
+    if (!strcmp(s, "midsum"))     return ATMO_MIDSUM;     /* 2 */
+    if (!strcmp(s, "midwin"))     return ATMO_MIDWIN;     /* 3 */
+    if (!strcmp(s, "tropical"))   return ATMO_TROPICAL;   /* 4 */
+    if (!strcmp(s, "subarctsum")) return ATMO_SUBSUM;     /* 5 */
+    if (!strcmp(s, "suarctwint")) return ATMO_SUBWIN;     /* 6 */
+    return ATMO_US62;
 }
 
 /**
@@ -124,14 +124,12 @@ static int atmo_str_to_int(const char *s)
  */
 static int aerosol_str_to_int(const char *s)
 {
-    if (!strcmp(s, "none"))          return 0;
-    if (!strcmp(s, "continental"))   return 1;
-    if (!strcmp(s, "maritime"))      return 2;
-    if (!strcmp(s, "urban"))         return 3;
-    if (!strcmp(s, "desert"))        return 4;
-    if (!strcmp(s, "biomass"))       return 5;
-    if (!strcmp(s, "stratospheric")) return 6;
-    return 1;
+    if (!strcmp(s, "none"))          return AEROSOL_NONE;         /* 0 */
+    if (!strcmp(s, "continental"))   return AEROSOL_CONTINENTAL;  /* 1 */
+    if (!strcmp(s, "maritime"))      return AEROSOL_MARITIME;     /* 2 */
+    if (!strcmp(s, "urban"))         return AEROSOL_URBAN;        /* 3 */
+    if (!strcmp(s, "desert"))        return AEROSOL_DESERT;       /* 5 */
+    return AEROSOL_CONTINENTAL;
 }
 
 /**
@@ -482,9 +480,9 @@ int main(int argc, char *argv[])
                    *opt_raa, *opt_altitude, *opt_target_elev, *opt_doy,
                    *opt_atmo, *opt_aerosol, *opt_aod, *opt_h2o,
                    *opt_aod_val, *opt_h2o_val, *opt_ozone, *opt_pressure,
-                   *opt_range, *opt_rescale, *opt_elevation,
+                   *opt_elevation,
                    *opt_aod_map, *opt_h2o_map, *opt_params, *opt_lut;
-    struct Flag    *flag_refl, *flag_int, *flag_polar, *flag_ram;
+    struct Flag    *flag_int, *flag_polar, *flag_ram;
 
     /* ── Module init ─────────────────────────────────────────────────────── */
     G_gisinit(argv[0]);
@@ -560,7 +558,7 @@ int main(int argc, char *argv[])
     opt_doy->type        = TYPE_INTEGER;
     opt_doy->required    = NO;
     opt_doy->label       = _("Day of year [1-365]");
-    opt_doy->description = _("Required for radiance→TOA conversion (not needed with -r)");
+    opt_doy->description = _("Required for radiance→TOA reflectance conversion");
     opt_doy->guisection  = _("Geometry");
 
     opt_atmo = G_define_option();
@@ -577,7 +575,7 @@ int main(int argc, char *argv[])
     opt_aerosol->type        = TYPE_STRING;
     opt_aerosol->required    = NO;
     opt_aerosol->answer      = "continental";
-    opt_aerosol->options     = "none,continental,maritime,urban,desert,biomass,stratospheric";
+    opt_aerosol->options     = "none,continental,maritime,urban,desert";
     opt_aerosol->label       = _("Aerosol model");
     opt_aerosol->guisection  = _("Atmosphere");
 
@@ -628,24 +626,6 @@ int main(int argc, char *argv[])
     opt_pressure->description = _("Surface pressure (hPa; 0 = use standard atmosphere)");
     opt_pressure->guisection  = _("Atmosphere");
 
-    opt_range = G_define_option();
-    opt_range->key          = "range";
-    opt_range->key_desc     = "min,max";
-    opt_range->type         = TYPE_INTEGER;
-    opt_range->required     = NO;
-    opt_range->answer       = "0,255";
-    opt_range->description  = _("Input raster DN range (scaled to [0,1] for processing)");
-    opt_range->guisection   = _("Input");
-
-    opt_rescale = G_define_option();
-    opt_rescale->key         = "rescale";
-    opt_rescale->key_desc    = "min,max";
-    opt_rescale->type        = TYPE_DOUBLE;
-    opt_rescale->required    = NO;
-    opt_rescale->answer      = "0.0,1.0";
-    opt_rescale->description = _("Output rescale range (default 0-1 = surface reflectance)");
-    opt_rescale->guisection  = _("Output");
-
     opt_elevation = G_define_standard_option(G_OPT_R_ELEV);
     opt_elevation->key         = "elevation";
     opt_elevation->required    = NO;
@@ -680,11 +660,6 @@ int main(int argc, char *argv[])
     opt_lut->label       = _("Binary LUT output/input file");
     opt_lut->description = _("If the file exists it is loaded; otherwise computed and saved");
     opt_lut->guisection  = _("Output");
-
-    flag_refl = G_define_flag();
-    flag_refl->key         = 'r';
-    flag_refl->description = _("Input raster map is reflectance (default: radiance)");
-    flag_refl->guisection  = _("Input");
 
     flag_int = G_define_flag();
     flag_int->key         = 'i';
@@ -775,38 +750,20 @@ int main(int argc, char *argv[])
         }
     }
 
-    /* Input DN scaling */
-    float range_parts[2] = {0.0f, 255.0f};
-    parse_csv_floats(opt_range->answer, range_parts, 2);
-    float dn_min = range_parts[0], dn_max = range_parts[1];
-    if (dn_max == dn_min)
-        G_fatal_error(_("Input range min == max; check range= option."));
-    float inv_range = 1.0f / (dn_max - dn_min);
-
-    /* Output rescale */
-    float rescale_parts[2] = {0.0f, 1.0f};
-    parse_csv_floats(opt_rescale->answer, rescale_parts, 2);
-    float out_min   = rescale_parts[0];
-    float out_range = rescale_parts[1] - rescale_parts[0];
-
-    int do_refl  = flag_refl->answer;
     int do_int   = flag_int->answer;
     int do_polar = flag_polar->answer;
     int do_ram   = flag_ram->answer;
 
-    /* Radiance → TOA pre-computation */
-    float E0 = 1.0f, d2 = 1.0f, mu_s = 1.0f;
-    if (!do_refl) {
-        if (doy == 0)
-            G_fatal_error(_("doy= (day of year) is required to convert radiance "
-                            "to TOA reflectance.  Use -r if input is already reflectance."));
-        E0   = sixs_E0(wavelength);
-        d2   = (float)sixs_earth_sun_dist2(doy);
-        mu_s = cosf(sza * (float)(M_PI / 180.0));
-        if (mu_s < 0.01f) {
-            G_warning(_("cos(SZA) < 0.01 (sun near/below horizon). Results may be unreliable."));
-            mu_s = 0.01f;
-        }
+    /* Radiance → TOA pre-computation (input is always radiance) */
+    if (doy == 0)
+        G_fatal_error(_("doy= (day of year) is required to convert radiance "
+                        "to TOA reflectance."));
+    float E0   = sixs_E0(wavelength);
+    float d2   = (float)sixs_earth_sun_dist2(doy);
+    float mu_s = cosf(sza * (float)(M_PI / 180.0));
+    if (mu_s < 0.01f) {
+        G_warning(_("cos(SZA) < 0.01 (sun near/below horizon). Results may be unreliable."));
+        mu_s = 0.01f;
     }
 
     /* ── Build LutConfig ─────────────────────────────────────────────────── */
@@ -1021,24 +978,18 @@ int main(int argc, char *argv[])
              * fully branchless for the vectoriser.
              */
             float inv_TdTu  = 1.0f / (sc_Td * sc_Tu + 1e-10f);
-            /* Fold the optional radiance→TOA factor into a single scale
-             * applied unconditionally (1.0 for reflectance input). */
-            float toa_scale = do_refl ? 1.0f
-                                      : (float)M_PI * d2 / (E0 * mu_s + 1e-30f);
-            float toa_max   = do_refl ? 1e30f : 2.0f;   /* no upper clamp for refl */
+            /* Fold radiance→TOA factor into a single scale. */
+            float toa_scale = (float)M_PI * d2 / (E0 * mu_s + 1e-30f);
 
 #ifdef _OPENMP
 #pragma omp parallel for simd schedule(static)
 #endif
             for (long p = 0; p < chunk_npix; p++) {
-                float toa = ((float)chunk_in[p] - dn_min) * inv_range * toa_scale;
-                /* NaN-safe clamp to [0, toa_max]: IEEE 754 guarantees that
-                 * comparisons with NaN are always false, so NaN passes through. */
-                toa = (toa < 0.0f)    ? 0.0f    : toa;
-                toa = (toa > toa_max) ? toa_max : toa;
+                float toa = (float)chunk_in[p] * toa_scale;
+                /* NaN-safe clamp: IEEE 754 guarantees NaN comparisons are false. */
+                toa = (toa < 0.0f) ? 0.0f : (toa > 2.0f ? 2.0f : toa);
                 float y = (toa - sc_Ra) * inv_TdTu;
-                chunk_out[p] = (FCELL)((y / (1.0f + sc_sa * y + 1e-10f))
-                                       * out_range + out_min);
+                chunk_out[p] = (FCELL)(y / (1.0f + sc_sa * y + 1e-10f));
             }
         } else {
             /*
@@ -1059,11 +1010,8 @@ int main(int argc, char *argv[])
                     continue;
                 }
 
-                float toa = ((float)dn - dn_min) * inv_range;
-                if (!do_refl) {
-                    toa = (float)M_PI * toa * d2 / (E0 * mu_s + 1e-30f);
-                    toa = toa < 0.0f ? 0.0f : (toa > 2.0f ? 2.0f : toa);
-                }
+                float toa = (float)M_PI * (float)dn * d2 / (E0 * mu_s + 1e-30f);
+                toa = toa < 0.0f ? 0.0f : (toa > 2.0f ? 2.0f : toa);
 
                 long  global_p = (long)row_done * ncols + p;
                 float pix_aod  = aod_map_data
@@ -1076,8 +1024,7 @@ int main(int argc, char *argv[])
                 atcorr_lut_slice(&cfg, &lut_arr, pix_aod, pix_h2o,
                                  Rs, Tds, Tus, ss, NULL);
 
-                float boa = atcorr_invert(toa, Rs[0], Tds[0], Tus[0], ss[0]);
-                chunk_out[p] = (FCELL)(boa * out_range + out_min);
+                chunk_out[p] = (FCELL)atcorr_invert(toa, Rs[0], Tds[0], Tus[0], ss[0]);
             }
         }
 

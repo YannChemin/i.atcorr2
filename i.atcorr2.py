@@ -149,8 +149,8 @@ NOTES:
 # % required: no
 # % answer: continental
 # % label: Aerosol model
-# % options: none,continental,maritime,urban,desert,biomass,stratospheric
-# % descriptions: none;No aerosols;continental;Continental (default);maritime;Maritime;urban;Urban;desert;Background desert;biomass;Biomass burning;stratospheric;Stratospheric
+# % options: none,continental,maritime,urban,desert
+# % descriptions: none;No aerosols;continental;Continental (default);maritime;Maritime;urban;Urban;desert;Desert dust
 # % guisection: Atmosphere
 # %end
 
@@ -321,12 +321,11 @@ def _find_atcorr_api():
 # ── 6S parameter file parser (i.atcorr backward compatibility) ────────────────
 
 _ATMO_NAME_TO_INT = {
-    "none": 0, "tropical": 1, "midsum": 2, "midwin": 3,
-    "subarctsum": 4, "suarctwint": 5, "us62": 6,
+    "none": 0, "us62": 1, "midsum": 2, "midwin": 3,
+    "tropical": 4, "subarctsum": 5, "suarctwint": 6,
 }
 _AEROSOL_NAME_TO_INT = {
-    "none": 0, "continental": 1, "maritime": 2, "urban": 3,
-    "desert": 4, "biomass": 5, "stratospheric": 6,
+    "none": 0, "continental": 1, "maritime": 2, "urban": 3, "desert": 5,
 }
 
 # Koschmieder approximation: AOD_550 ≈ 3.912/V - 0.01162  (V in km)
@@ -595,10 +594,10 @@ def main():
     see the ``#%`` header block at the top of this file for the full option
     specification.
     """
-    opts  = gs.parser()
+    opts, flags = gs.parser()
 
     # ── -l: list bands for sensor and exit ───────────────────────────────────
-    if opts["l"]:
+    if flags["l"]:
         sensor_key = opts["sensor"]
         if not sensor_key:
             # No sensor given — list all sensors
@@ -727,7 +726,7 @@ def main():
         )
     wl_arr = np.array([wavelength], dtype=np.float32)
 
-    flag_polar  = opts["P"]   # polarization
+    flag_polar  = flags["P"]   # polarization
 
     # ── Build LutConfig ───────────────────────────────────────────────────────
     cfg = _atcorr.LutConfig(
