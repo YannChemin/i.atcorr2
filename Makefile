@@ -3,7 +3,8 @@ MODULE_TOPDIR = $(HOME)/dev/grass
 PGM = i.atcorr2
 
 # ── grass_sixsv dependency ──────────────────────────────────────────────────
-# grass_sixsv is the standalone 6SV2.1 library built in ../i.hyper.atcorr/src/.
+# grass_sixsv is the standalone 6SV2.1 library built and installed from
+# ../libsixsv/ (https://github.com/YannChemin/libsixsv).
 # The lazy = assignment ensures GRASS_LIB_VERSION_NUMBER is resolved after
 # the include chain (Vars.make → Grass.make) has run.
 SIXSV_LIB_NAME = grass_sixsv.$(GRASS_LIB_VERSION_NUMBER)
@@ -14,9 +15,9 @@ SIXSVDEP        = $(ARCH_LIBDIR)/$(SHLIB_PREFIX)$(SIXSV_LIB_NAME)$(SHLIB_SUFFIX)
 MOD_OBJS = main.o
 
 # ── Compiler / linker options ────────────────────────────────────────────────
-# atcorr.h lives in ../i.hyper.atcorr/include/ in the build tree; after
+# atcorr.h lives in ../libsixsv/include/ in the build tree; after
 # install it is under $GISBASE/include/grass/ via the standard INC path.
-EXTRA_INC     = -I$(MODULE_TOPDIR)/../lib6sv/include
+EXTRA_INC     = -I$(MODULE_TOPDIR)/../libsixsv/include
 EXTRA_CFLAGS  = -O3 -ffast-math -fopenmp -std=c11 \
                 -Wall -Wextra -Wno-unused-parameter
 EXTRA_LDFLAGS = -fopenmp
