@@ -63,7 +63,7 @@ Explicit <tt>wavelength=</tt> overrides the automatic lookup.
 <tr>
   <td>Spectral band</td>
   <td>Sensor code (iwave &minus;2 to 33) or wl range in conditions file</td>
-  <td><tt>sensor=</tt>/<tt>band=</tt> SRF lookup (36 sensors) <b>or</b>
+  <td><tt>sensor=</tt>/<tt>band=</tt> SRF lookup (39 sensors) <b>or</b>
       explicit <tt>wavelength=</tt> &micro;m</td>
 </tr>
 <tr>
@@ -261,7 +261,9 @@ i.atcorr2 -l sensor=sentinel2a
 i.atcorr2 -l
 </pre></div>
 <p>
-36 sensor keys are supported:
+39 sensor keys are supported (&#x2020;&nbsp;= trapezoidal SRF derived from
+official band-limit tables; no digitized per-wavelength RSR was published
+for these sensors):
 </p>
 <p>
 <tt>sentinel2a</tt>, <tt>sentinel2b</tt>, <tt>sentinel2c</tt>,
@@ -270,6 +272,8 @@ i.atcorr2 -l
 <tt>landsat5_mss</tt>, <tt>landsat4_mss</tt>, <tt>landsat3_mss</tt>,
 <tt>landsat2_mss</tt>, <tt>landsat1_mss</tt>,
 <tt>modis_terra</tt>, <tt>aster</tt>, <tt>eo1_ali</tt>,
+<tt>pleiades_neo</tt>&#x2020;, <tt>amazonia1</tt>&#x2020;,
+<tt>cbers4a_mux</tt>&#x2020;,
 <tt>spot6</tt>, <tt>spot7</tt>, <tt>pleiades1a</tt>, <tt>pleiades1b</tt>,
 <tt>worldview2</tt>, <tt>worldview3</tt>, <tt>worldview4</tt>,
 <tt>geoeye1</tt>, <tt>quickbird2</tt>, <tt>ikonos</tt>, <tt>rapideye</tt>,

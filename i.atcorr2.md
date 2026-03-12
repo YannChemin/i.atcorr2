@@ -34,7 +34,7 @@ overrides the automatic lookup.
 | **Language** | C++ | Python |
 | **Engine** | 6S C++ port, pixel-by-pixel | 6SV2.1 via `grass_sixsv`, LUT-based |
 | **Parameter input** | 6S conditions text file (`parameters=`, required) | Explicit GRASS options; 6S file optionally accepted for backward compatibility |
-| **Spectral band** | Sensor code (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (36 sensors) **or** `wavelength=` µm |
+| **Spectral band** | Sensor code (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (39 sensors) **or** `wavelength=` µm |
 | **Atmospheric model** | Numeric code 0–6 in conditions file | Named option: `us62`, `tropical`, `midsum`, … |
 | **Aerosol concentration** | Visibility (km) or AOD in conditions file | `aod=` LUT grid + `aod_val=` scene value |
 | **Water vapour** | Fixed by atmospheric model | `h2o=` LUT grid + `h2o_val=` scene value |
@@ -151,13 +151,15 @@ i.atcorr2 -l sensor=sentinel2a
 i.atcorr2 -l
 ```
 
-36 sensor keys are supported:
+39 sensor keys are supported († = trapezoidal SRF from band-limit tables;
+no digitized per-wavelength RSR was published for these sensors):
 
 `sentinel2a`, `sentinel2b`, `sentinel2c`,
 `landsat9_oli2`, `landsat8`, `landsat7_etm`,
 `landsat5_tm`, `landsat4_tm`,
 `landsat5_mss`, `landsat4_mss`, `landsat3_mss`, `landsat2_mss`, `landsat1_mss`,
 `modis_terra`, `aster`, `eo1_ali`,
+`pleiades_neo`†, `amazonia1`†, `cbers4a_mux`†,
 `spot6`, `spot7`, `pleiades1a`, `pleiades1b`,
 `worldview2`, `worldview3`, `worldview4`,
 `geoeye1`, `quickbird2`, `ikonos`, `rapideye`,

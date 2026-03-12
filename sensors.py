@@ -89,6 +89,12 @@ SENSORS = {
     "modis_terra":       "modis_terra.csv",
     "aster":             "aster_vnir_swir.csv",
     "eo1_ali":           "eo1_ali.csv",
+    # ── Pléiades Neo / Amazônia-1 / CBERS-4A ─────────────────────────────────
+    # SRF approximated as flat-top trapezoids from official band-limit tables
+    # (USGS OFR 2021-1030-P, -N, -J).  No digitized per-wavelength RSR published.
+    "pleiades_neo":      "pleiades_neo.csv",
+    "amazonia1":         "amazonia1.csv",
+    "cbers4a_mux":       "cbers4a_mux.csv",
     # ── Commercial VHR ────────────────────────────────────────────────────────
     "worldview2":        "worldview2.csv",
     "worldview3":        "worldview3.csv",
@@ -264,6 +270,32 @@ _FWHM_OVERRIDES: dict[str, dict[str, float]] = {
         "Red":   100.0,
         "NIR1":  100.0,
         "NIR2":  300.0,
+    },
+    # ── Pléiades Neo (USGS OFR 2021-1030-P, Table 2 — band limits → FWHM) ───
+    # SRF is trapezoidal approximation; FWHM = upper – lower band limit.
+    "pleiades_neo": {
+        "Pan":      350.0,   # 450–800 nm
+        "DeepBlue":  60.0,   # 400–460 nm  (coastal aerosol)
+        "Blue":      60.0,   # 460–520 nm
+        "Green":     80.0,   # 520–600 nm
+        "Red":       80.0,   # 600–680 nm
+        "RedEdge":   40.0,   # 680–720 nm
+        "NIR":      170.0,   # 730–900 nm
+    },
+    # ── Amazônia-1 WFI-2 (USGS OFR 2021-1030-N, Table 2) ─────────────────
+    "amazonia1": {
+        "Blue":   70.0,   # 450–520 nm
+        "Green":  70.0,   # 520–590 nm
+        "Red":    60.0,   # 630–690 nm
+        "NIR":   120.0,   # 770–890 nm
+    },
+    # ── CBERS-4A MUX (USGS OFR 2021-1030-J, Table 2) ─────────────────────
+    # Same band limits as Amazônia-1 WFI-2 — identical instrument design.
+    "cbers4a_mux": {
+        "Band5_Blue":   70.0,   # 450–520 nm
+        "Band6_Green":  70.0,   # 520–590 nm
+        "Band7_Red":    60.0,   # 630–690 nm
+        "Band8_NIR":   120.0,   # 770–890 nm
     },
     # ── RapidEye (Planet Labs datasheet 2020) ─────────────────────────────
     "rapideye": {

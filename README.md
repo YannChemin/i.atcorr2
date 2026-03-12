@@ -13,7 +13,7 @@ Atmospheric correction for single-band rasters using the
 | **Language** | C++ | Python |
 | **Engine** | 6S (C++ port of Fortran, pixel-by-pixel) | 6SV2.1 via `grass_sixsv` (LUT-based) |
 | **Parameter input** | 6S conditions text file (`parameters=`, required) | Explicit GRASS options; 6S file optionally accepted for backward compatibility |
-| **Spectral band** | Sensor codes (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (36 sensors) **or** explicit `wavelength=` µm |
+| **Spectral band** | Sensor codes (iwave −2 to 33) or wl range in conditions file | `sensor=`/`band=` SRF lookup (39 sensors) **or** explicit `wavelength=` µm |
 | **Atmospheric model** | Codes 0–6 in the conditions file | Named options: `us62`, `tropical`, `midsum`, … |
 | **Aerosol concentration** | Visibility (km) or AOD in conditions file | `aod=` LUT grid + `aod_val=` scene value |
 | **Water vapour** | Fixed per-scene from atmospheric model | `h2o=` LUT grid + `h2o_val=` scene value |
@@ -141,9 +141,11 @@ Bands for sensor 'landsat9_oli2':
 
 ## Supported sensors (`sensor=`)
 
-36 multispectral sensors are supported via SRF CSV files in `sensors_csv/`.
+39 multispectral sensors are supported via SRF CSV files in `sensors_csv/`.
 Band centre wavelengths are computed as the SRF-weighted mean; FWHM values
 are derived from the half-maximum criterion or official datasheet overrides.
+Sensors marked † use trapezoidal SRF approximations derived from official
+band-limit tables (no digitized per-wavelength RSR was published).
 
 | Sensor key | Satellite / instrument |
 |---|---|
@@ -155,6 +157,9 @@ are derived from the half-maximum criterion or official datasheet overrides.
 | `modis_terra` | MODIS Terra (bands 1–19, solar reflective) |
 | `aster` | Terra ASTER (VNIR + SWIR, bands 1–9) |
 | `eo1_ali` | EO-1 ALI |
+| `pleiades_neo` † | Pléiades Neo (7 bands incl. coastal aerosol + red edge) |
+| `amazonia1` † | Amazônia-1 WFI-2 (INPE, Brazil) |
+| `cbers4a_mux` † | CBERS-4A MUX (China-Brazil, same bands as Amazônia-1) |
 | `spot6`, `spot7` | SPOT-6/7 |
 | `pleiades1a`, `pleiades1b` | Pléiades-1A/B |
 | `worldview2`, `worldview3`, `worldview4` | WorldView-2/3/4 |

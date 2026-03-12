@@ -39,10 +39,12 @@ NOTES:
 # %end
 
 # %option G_OPT_R_INPUT
+# % required: no
 # % guisection: Input
 # %end
 
 # %option G_OPT_R_OUTPUT
+# % required: no
 # % guisection: Output
 # %end
 
@@ -52,7 +54,7 @@ NOTES:
 # % required: no
 # % label: Satellite/sensor name (optional, auto-detected from band=)
 # % description: If omitted, the sensor is inferred from the band name; only needed when the band name is ambiguous across sensors
-# % options: aster,avnir,eo1_ali,geoeye1,ikonos,landsat1_mss,landsat2_mss,landsat3_mss,landsat4_mss,landsat4_tm,landsat5_mss,landsat5_tm,landsat7_etm,landsat8,landsat9_oli2,modis_terra,planetscope_0c_0d,planetscope_0e,planetscope_0f_10,pleiades1a,pleiades1b,prism_b,prism_f,prism_n,quickbird2,rapideye,sentinel2a,sentinel2b,sentinel2c,spot6,spot7,vgt1_spot4,vgt2_spot5,worldview2,worldview3,worldview4
+# % options: amazonia1,aster,avnir,cbers4a_mux,eo1_ali,geoeye1,ikonos,landsat1_mss,landsat2_mss,landsat3_mss,landsat4_mss,landsat4_tm,landsat5_mss,landsat5_tm,landsat7_etm,landsat8,landsat9_oli2,modis_terra,planetscope_0c_0d,planetscope_0e,planetscope_0f_10,pleiades1a,pleiades1b,pleiades_neo,prism_b,prism_f,prism_n,quickbird2,rapideye,sentinel2a,sentinel2b,sentinel2c,spot6,spot7,vgt1_spot4,vgt2_spot5,worldview2,worldview3,worldview4
 # % guisection: Band
 # %end
 
@@ -124,7 +126,7 @@ NOTES:
 # %option
 # % key: doy
 # % type: integer
-# % required: yes
+# % required: no
 # % label: Day of year [1-365]
 # % description: Used to compute Earth-Sun distance for radiance to TOA reflectance conversion
 # % guisection: Geometry
@@ -614,6 +616,17 @@ def main():
         for band, (centre_um, fwhm_nm) in specs.items():
             print(f"  {band:<25}  {centre_um:>12.4f}  {fwhm_nm:>10.1f}")
         return
+
+    # ── Validate required options (not enforced by parser when -l is available)
+    missing = []
+    if not opts["input"]:
+        missing.append("input")
+    if not opts["output"]:
+        missing.append("output")
+    if not opts["doy"]:
+        missing.append("doy")
+    if missing:
+        gs.fatal("Required parameter(s) not set: " + ", ".join(missing))
 
     # ── Locate and import the libsixsv Python API ────────────────────────────
     api_dir = _find_atcorr_api()

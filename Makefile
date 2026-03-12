@@ -29,7 +29,7 @@ include $(MODULE_TOPDIR)/include/Make/Module.make
 default: cmd
 
 # ── Installation ─────────────────────────────────────────────────────────────
-install:
+install: install_py
 	$(INSTALL) $(ARCH_DISTDIR)/bin/$(PGM)$(EXE) $(INST_DIR)/bin/
 	$(INSTALL_DATA) i.atcorr2.html $(INST_DIR)/docs/html/
 	$(INSTALL_DATA) $(ARCH_DISTDIR)/docs/man/man1/$(PGM).1 \
